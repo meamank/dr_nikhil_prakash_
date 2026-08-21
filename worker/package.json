@@ -1,0 +1,30 @@
+{
+  "name": "worker",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply clinic-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply clinic-db --remote",
+    "db:seed": "bun run scripts/seed.ts",
+    "db:studio": "drizzle-kit studio"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260821.1",
+    "@types/bun": "latest",
+    "drizzle-kit": "^0.31.10",
+    "wrangler": "^4.125.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "better-auth": "^1.7.1",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.13.3"
+  }
+}

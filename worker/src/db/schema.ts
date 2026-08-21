@@ -1,0 +1,228 @@
+import { sql } from "drizzle-orm"
+import {
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core"
+
+// ---------------------------------------------------------------------------
+// better-auth managed tables
+// (better-auth will auto-create these via its migration, but we declare them
+//  here so Drizzle relations and our own queries are type-safe)
+// ---------------------------------------------------------------------------
+
+export const user = sqliteTable("user", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email"),
+  emailVerified: integer("email_verified", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  image: text("image"),
+  // better-auth phoneNumber plugin adds these:
+  phoneNumber: text("phone_number"),
+  phoneNumberVerified: integer("phone_number_verified", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  // better-auth username plugin adds this (we store PID here for walk-in patients):
+  username: text("username"),
+  // Our custom fields:
+  role: text("role", { enum: ["admin", "staff", "user"] })
+    .notNull()
+    .default("user"),
+  isFirstLogin: integer("is_first_login", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const session = sqliteTable("session", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const account = sqliteTable("account", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  issuer: text("issuer"),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  accessTokenExpiresAt: integer("access_token_expires_at", {
+    mode: "timestamp",
+  }),
+  refreshTokenExpiresAt: integer("refresh_token_expires_at", {
+    mode: "timestamp",
+  }),
+  scope: text("scope"),
+  idToken: text("id_token"),
+  password: text("password"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const verification = sqliteTable("verification", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+// ---------------------------------------------------------------------------
+// PID counter — single-row table for atomic PID generation
+// ---------------------------------------------------------------------------
+
+export const pidCounter = sqliteTable("pid_counter", {
+  id: integer("id").primaryKey().default(1),
+  value: integer("value").notNull().default(0),
+})
+
+// ---------------------------------------------------------------------------
+// Clinic domain tables
+// ---------------------------------------------------------------------------
+
+export const patients = sqliteTable("patients", {
+  // Clinic-generated identifier e.g. "PID-00001"
+  pid: text("pid").primaryKey(),
+  // Linked to a better-auth user if they self-registered or later claimed the record
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  fullName: text("full_name").notNull(),
+  mobile: text("mobile").notNull(),
+  dob: text("dob"), // ISO date string "YYYY-MM-DD"
+  gender: text("gender", { enum: ["male", "female", "other"] }),
+  // Set when a staff member created this record at the front desk
+  bookedByStaffId: text("booked_by_staff_id").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  // Walk-in patients have never used the portal — drives OTP flow later
+  isFirstLogin: integer("is_first_login", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const appointments = sqliteTable("appointments", {
+  id: text("id").primaryKey(), // uuid
+  patientPid: text("patient_pid")
+    .notNull()
+    .references(() => patients.pid, { onDelete: "cascade" }),
+  // Who booked — either the patient's own userId or a staff userId
+  bookedBy: text("booked_by")
+    .notNull()
+    .references(() => user.id),
+  scheduledAt: integer("scheduled_at", { mode: "timestamp" }).notNull(),
+  status: text("status", {
+    enum: ["scheduled", "in_progress", "done", "cancelled"],
+  })
+    .notNull()
+    .default("scheduled"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const vitals = sqliteTable("vitals", {
+  id: text("id").primaryKey(),
+  appointmentId: text("appointment_id")
+    .notNull()
+    .references(() => appointments.id, { onDelete: "cascade" }),
+  bpSystolic: integer("bp_systolic"),
+  bpDiastolic: integer("bp_diastolic"),
+  pulse: integer("pulse"),
+  spo2: integer("spo2"),
+  temperature: integer("temperature"), // stored as tenths of a degree e.g. 372 = 37.2°C
+  weightKg: integer("weight_kg"),      // stored as tenths e.g. 705 = 70.5 kg
+  heightCm: integer("height_cm"),
+  recordedBy: text("recorded_by")
+    .notNull()
+    .references(() => user.id),
+  recordedAt: integer("recorded_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const preConsultation = sqliteTable("pre_consultation", {
+  id: text("id").primaryKey(),
+  appointmentId: text("appointment_id")
+    .notNull()
+    .references(() => appointments.id, { onDelete: "cascade" }),
+  chiefComplaint: text("chief_complaint"),
+  // Free-form history blob — JSON string
+  history: text("history"),
+  // Assistant doctor's working diagnosis notes
+  diagnosisDraft: text("diagnosis_draft"),
+  // Which disease-specific form was opened, if any
+  formType: text("form_type", {
+    enum: ["general", "T2DM", "HTN", "asthma", "other"],
+  }).default("general"),
+  // JSON object — checkbox answers keyed by question ID
+  formData: text("form_data"),
+  // false = record came through the offline sync queue
+  synced: integer("synced", { mode: "boolean" }).notNull().default(true),
+  recordedBy: text("recorded_by")
+    .notNull()
+    .references(() => user.id),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const prescriptions = sqliteTable("prescriptions", {
+  id: text("id").primaryKey(),
+  appointmentId: text("appointment_id")
+    .notNull()
+    .references(() => appointments.id, { onDelete: "cascade" }),
+  // Name of the doctor (from admin user's name field — doctor IS the admin)
+  doctorName: text("doctor_name").notNull(),
+  // Staff who entered the prescription from the paper
+  enteredBy: text("entered_by")
+    .notNull()
+    .references(() => user.id),
+  // JSON arrays
+  medicines: text("medicines").notNull().default("[]"),
+  tests: text("tests").notNull().default("[]"),
+  notes: text("notes"),
+  finalizedAt: integer("finalized_at", { mode: "timestamp" }),
+  whatsappSent: integer("whatsapp_sent", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
