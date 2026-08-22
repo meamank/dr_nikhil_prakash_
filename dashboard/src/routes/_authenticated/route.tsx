@@ -1,14 +1,9 @@
 import * as React from "react"
-import {
-  Outlet,
-  createFileRoute,
-  redirect,
-  useNavigate,
-} from "@tanstack/react-router"
+import { Outlet, createFileRoute, redirect } from "@tanstack/react-router"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
-import { getSession, useSession } from "@/lib/auth-client"
+import { getSession } from "@/lib/auth-client"
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
@@ -23,8 +18,8 @@ export const Route = createFileRoute("/_authenticated")({
       })
     }
 
-    if ((session.user as any).role === "user") {
-      throw redirect({ to: "/" })
+    if (session.user.role === "user") {
+      throw redirect({ to: "/appointments" })
     }
     return { session }
   },

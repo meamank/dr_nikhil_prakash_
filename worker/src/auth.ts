@@ -36,18 +36,36 @@ export function createAuth(env: Env) {
       },
     }),
 
-    // -------------------------------------------------------------------------
+   
+    // Custom user fields
+
+    user: {
+      additionalFields: {
+        role: {
+          type: "string",
+          defaultValue: "user",
+          input: false, // Disallows client-supplied role on public signups
+        },
+        isFirstLogin: {
+          type: "boolean",
+          defaultValue: false,
+          input: false,
+        },
+      },
+    },
+
+
     // Email + password — enabled by default in better-auth
-    // -------------------------------------------------------------------------
+
     emailAndPassword: {
       enabled: true,
       // No email verification for now
       requireEmailVerification: false,
     },
 
-    // -------------------------------------------------------------------------
+
     // Plugins
-    // -------------------------------------------------------------------------
+
     plugins: [
       // Phone number + password sign-in
       // The plugin stores the credential under providerId = "credential" in
@@ -71,18 +89,18 @@ export function createAuth(env: Env) {
       username(),
     ],
 
-    // -------------------------------------------------------------------------
+
     // Session config
-    // -------------------------------------------------------------------------
+
     session: {
       expiresIn: 60 * 60 * 24 * 7, // 7 days
       updateAge: 60 * 60 * 24,      // roll session if older than 1 day
     },
 
-    // -------------------------------------------------------------------------
+
     // Trusted origins — must list both dev and prod
     // Updated by setting the BETTER_AUTH_TRUSTED_ORIGINS env var in production
-    // -------------------------------------------------------------------------
+
     trustedOrigins: ["http://localhost:5173"],
   })
 }

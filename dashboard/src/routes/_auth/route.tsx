@@ -6,7 +6,7 @@ export const Route = createFileRoute("/_auth")({
     const { data: session } = await getSession()
 
     if (session) {
-      const dest = (session.user as any).role === "user" ? "/" : "/"
+      const dest = session.user.role === "user" ? "/appointments" : "/"
       throw redirect({ to: dest })
     }
   },

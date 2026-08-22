@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useForm } from "@tanstack/react-form"
-import { useNavigate } from "@tanstack/react-router"
+import { redirect, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -16,13 +16,10 @@ import { Input } from "@/components/ui/input"
 import { loginWithIdentifier } from "@/lib/auth-client"
 import { Logo } from "./Logo"
 
-// -----------------------------------------------------------------------------
-// Zod Validation Schemas
-// -----------------------------------------------------------------------------
 const identifierSchema = z
   .string()
   .trim()
-  .min(5, "Mobile number, email, or PID is required")
+  .min(3, "Mobile number, email, or PID is required")
   .refine(
     (val) => {
       // If user is entering an email, validate email format
@@ -32,13 +29,10 @@ const identifierSchema = z
       // If user is entering numbers, check for valid 10-digit phone
       const digits = val.replace(/\D/g, "")
       if (/^\+?\d+$/.test(val)) {
-        return (
-          digits.length === 10 ||
-          (digits.length === 12 && digits.startsWith("91"))
-        )
+        return digits.length === 10
       }
       // Otherwise username / PID (e.g. PID-00001, admin)
-      return val.length >= 2
+      return val.length >= 3
     },
     {
       message: "Please enter a valid 10-digit mobile, email, or PID",
@@ -48,7 +42,7 @@ const identifierSchema = z
 const passwordSchema = z
   .string()
   .min(1, "Password is required")
-  .min(6, "Password must be at least 6 characters")
+  .min(8, "Password must be at least 8 characters")
 
 const loginSchema = z.object({
   identifier: identifierSchema,
@@ -92,8 +86,12 @@ export function LoginForm({
           return
         }
 
-        // Successfully logged in — redirect to dashboard
-        navigate({ to: "/" })
+        navigate({
+          to: "/",
+          search: {
+            redirect: location.href,
+          },
+        })
       } catch (err: unknown) {
         const errorMsg =
           err instanceof Error
@@ -155,7 +153,7 @@ export function LoginForm({
                         id={field.name}
                         name={field.name}
                         type="text"
-                        placeholder="7011724367 or PID-0001 or doc@example.com"
+                        placeholder="9123456789 or PID-0001 or doc@example.com"
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
