@@ -19,7 +19,12 @@ export const Route = createFileRoute("/_authenticated")({
     }
 
     if (session.user.role === "user") {
-      throw redirect({ to: "/appointments" })
+      const isAppointments =
+        location.pathname === "/appointments" ||
+        location.pathname.startsWith("/appointments/")
+      if (!isAppointments) {
+        throw redirect({ to: "/appointments" })
+      }
     }
     return { session }
   },

@@ -8,18 +8,8 @@ export type Env = {
   DB: D1Database
 }
 
-/**
- * Creates a better-auth instance bound to the D1 database from the current request.
- *
- * Plugins in use:
- *  - emailPassword  (built-in, enabled by default)
- *  - phoneNumber    → signIn.phoneNumber({ phoneNumber, password })
- *                     requires account row with providerId = "credential"
- *  - username       → signIn.username({ username, password })
- *                     used for PID-based login (walk-in patients, staff)
- *
- * Called once per request inside the Hono auth handler.
- */
+
+
 export function createAuth(env: Env) {
   const db = drizzle(env.DB, { schema })
 
@@ -59,7 +49,6 @@ export function createAuth(env: Env) {
 
     emailAndPassword: {
       enabled: true,
-      // No email verification for now
       requireEmailVerification: false,
     },
 
@@ -67,16 +56,13 @@ export function createAuth(env: Env) {
     // Plugins
 
     plugins: [
-      // Phone number + password sign-in
-      // The plugin stores the credential under providerId = "credential" in
-      // the account table, so signIn.phoneNumber({ phoneNumber, password })
-      // resolves the user by phoneNumber column then validates the password.
+     
       phoneNumber({
         // Stub — wire WhatsApp OTP here later
         sendOTP: async ({ phoneNumber, code }) => {
-          console.log(`[OTP stub] ${phoneNumber} → ${code}`)
+          console.log(` ${phoneNumber} → ${code}`)
         },
-        // Skip OTP verification during sign-up for now
+
         signUpOnVerification: {
           getTempEmail: (phoneNumber) =>
             `${phoneNumber.replace(/\D/g, "")}@phone.local`,
@@ -84,8 +70,6 @@ export function createAuth(env: Env) {
       }),
 
       // Username + password — used for PID login
-      // Walk-in patients created by staff have their PID stored as `username`.
-      // Staff accounts also use email but can optionally have username set.
       username(),
     ],
 
@@ -98,8 +82,6 @@ export function createAuth(env: Env) {
     },
 
 
-    // Trusted origins — must list both dev and prod
-    // Updated by setting the BETTER_AUTH_TRUSTED_ORIGINS env var in production
 
     trustedOrigins: ["http://localhost:5173"],
   })

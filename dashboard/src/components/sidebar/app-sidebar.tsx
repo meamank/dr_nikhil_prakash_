@@ -26,7 +26,7 @@ import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router"
 import Username from "../common/Username"
 import { signOut, useSession } from "@/lib/auth-client"
 
-const items = [
+const adminItems = [
   {
     title: "Dashboard",
     url: "/",
@@ -54,7 +54,15 @@ const items = [
   },
 ]
 
-type NavItemProps = (typeof items)[number] & {
+const userItems = [
+  {
+    title: "Appointments",
+    url: "/appointments",
+    icon: ClipboardClock,
+  },
+]
+
+type NavItemProps = (typeof adminItems)[number] & {
   onNavigate: () => void
 }
 function NavItem({ title, url, icon: Icon, onNavigate }: NavItemProps) {
@@ -109,9 +117,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   const name = session?.user?.name || "User"
-  const role = session?.user?.role
-    ? session.user.role.toUpperCase()
-    : "USER"
+  const role = session?.user?.role ? session.user.role.toUpperCase() : "user"
+
+  const navBar = role === "USER" ? userItems : adminItems
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -122,7 +130,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup className="pt-0">
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {navBar.map((item) => (
                 <NavItem
                   key={item.title}
                   {...item}
@@ -145,9 +153,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 onClick={handleLogout}
                 disabled={isLoggingOut}
                 title="Log out"
-                className="rounded p-1 text-muted-foreground transition-colors hover:text-destructive"
+                className="flex items-center gap-2 rounded p-1 px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-destructive hover:text-white"
               >
-                <LogOut className="size-4" />
+                <LogOut className="size-3" />
+                Logout
               </button>
             </div>
           </SidebarMenuItem>

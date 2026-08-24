@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useForm } from "@tanstack/react-form"
-import { redirect, useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
+  FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { loginWithIdentifier } from "@/lib/auth-client"
@@ -86,12 +87,7 @@ export function LoginForm({
           return
         }
 
-        navigate({
-          to: "/",
-          search: {
-            redirect: location.href,
-          },
-        })
+        navigate({ to: "/" })
       } catch (err: unknown) {
         const errorMsg =
           err instanceof Error
@@ -118,7 +114,7 @@ export function LoginForm({
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Welcome back</h1>
                 <p className="text-sm text-balance text-muted-foreground">
-                  Login to Dr. Nikhil Prakash Clinic Portal
+                  Login to book your account
                 </p>
               </div>
 
@@ -236,9 +232,12 @@ export function LoginForm({
                   </Field>
                 )}
               </form.Subscribe>
-
-              <FieldDescription className="text-center text-xs">
-                Staff or doctor account issue? Contact administration.
+              <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+                Or
+              </FieldSeparator>
+              <FieldDescription className="text-center">
+                Don't have an account?{" "}
+                <Link to="/signup">Create an account</Link>
               </FieldDescription>
             </FieldGroup>
           </form>
