@@ -414,6 +414,7 @@ main[id] {
 	max-width: var(--page-max);
 	margin: 0 auto;
 	padding: calc(64px + var(--space-xl)) var(--page-gutter) var(--space-2xl);
+	min-height: 100dvh; /* full first screen on every viewport */
 	display: flex;
 	flex-direction: column;
 	/* subtle vertical pinstripes, as in the reference */
@@ -426,20 +427,17 @@ main[id] {
 	);
 }
 
-/* Desktop: the hero fills the first screen edge-to-edge */
-@media (min-width: 60rem) {
-	.hero {
-		min-height: 100dvh;
-	}
-}
-
-.hero__body {
-	margin-block: auto;
-	display: grid;
-	gap: var(--space-md);
+/* Frame sizes itself to the headline's width; row + foot stretch to its edges */
+.hero__frame {
+	width: fit-content;
+	align-self: center;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
 }
 
 .hero__eyebrow {
+	margin-block-start: auto; /* centres the headline group, foot stays at the bottom */
 	display: flex;
 	justify-content: center;
 	align-items: center;
@@ -468,22 +466,49 @@ main[id] {
 	color: color-mix(in oklch, var(--color-ink) 60%, var(--color-paper));
 }
 
-.hero__sub {
-	max-width: 58ch;
-	margin-inline: auto;
-	text-align: center;
+.hero__row {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start; /* MBBS top-aligns with Consultant Physician */
+	gap: var(--space-xl);
+	margin-block: var(--space-lg) 0;
+}
+
+.hero__role-block {
+	display: grid;
+	gap: var(--space-3xs);
+}
+
+.hero__specialty {
+	max-width: 30ch;
 	font-size: var(--text-lg);
 	color: var(--color-muted);
 }
 
 .hero__cred {
+	display: grid;
+	gap: var(--space-3xs);
 	text-align: right;
 	font-size: var(--text-lg);
 	color: var(--color-muted);
 }
 
+.hero__cred-role {
+	font-weight: 600;
+	color: var(--color-ink);
+}
+
+.hero__tagline {
+	margin-block-start: auto; /* pins tagline + foot to the bottom of the first screen */
+	align-self: center;
+	max-width: 52ch;
+	text-align: center;
+	font-size: var(--text-lg);
+	color: var(--color-muted);
+}
+
 .hero__foot {
-	margin-block-start: var(--space-2xl);
+	margin-block-start: var(--space-lg);
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: space-between;
@@ -938,9 +963,28 @@ main[id] {
 		grid-template-columns: minmax(0, 1fr);
 	}
 
+	/* Tablet + mobile: the name stays on one line */
+	.hero__headline {
+		font-size: clamp(1.5rem, 8vw, 3.5rem);
+	}
+
 	.hero__foot {
 		flex-direction: column;
 		align-items: flex-start;
+	}
+
+	.hero__row {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.hero__cred {
+		text-align: left;
+	}
+
+	.hero__foot {
+		align-items: center;
+		text-align: center;
 	}
 
 	.hero__stats {
