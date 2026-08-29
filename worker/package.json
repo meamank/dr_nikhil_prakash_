@@ -7,6 +7,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "cf-typegen": "wrangler types",
+    "typecheck": "tsc --noEmit",
+    "build": "echo \"no build for worker\"",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply clinic-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply clinic-db --remote",
@@ -23,6 +25,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@repo/shared": "workspace:*",
     "better-auth": "^1.7.1",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.3",

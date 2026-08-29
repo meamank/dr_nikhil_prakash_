@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { eq } from "drizzle-orm"
+import { normalizePhone } from "@repo/shared"
 import { createDb } from "./db"
 import * as schema from "./db/schema"
 import { createAuth, type Env } from "./auth"
@@ -27,14 +28,6 @@ const PUBLIC_SIGNUP_PATHS = new Set([
   "/api/auth/sign-up/email",
   "/api/auth/sign-up/phone-number",
 ])
-
-function normalizePhone(input: string): string | null {
-  const digits = input.replace(/\D/g, "")
-  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2)
-  if (digits.length === 11 && digits.startsWith("0")) return digits.slice(1)
-  if (digits.length === 10) return digits
-  return null
-}
 
 app.use("/api/auth/sign-up/*", async (c, next) => {
   if (c.req.method === "POST" && PUBLIC_SIGNUP_PATHS.has(c.req.path)) {

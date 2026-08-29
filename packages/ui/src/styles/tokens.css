@@ -1,0 +1,7 @@
+/* Shared design tokens — import in dashboard/src/index.css and web/src/styles/global.css */
+@theme {
+  --radius: 0.625rem;
+  --color-brand-50: oklch(0.97 0.02 260);
+  --color-brand-500: oklch(0.62 0.18 260);
+  --color-brand-900: oklch(0.35 0.12 260);
+}

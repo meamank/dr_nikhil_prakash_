@@ -1,0 +1,13 @@
+{
+  "name": "@repo/config",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint": "./eslint.base.js",
+    "./prettier": "./prettier.base.js"
+  },
+  "scripts": {
+    "typecheck": "echo \"no typecheck for config\""
+  }
+}
