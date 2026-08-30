@@ -284,9 +284,17 @@ main[id] {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--space-sm);
+	min-width: 0;
 	font-weight: 700;
 	letter-spacing: -0.015em;
 	text-decoration: none;
+	white-space: nowrap;
+}
+
+/* Long brand truncates with an ellipsis instead of colliding with the CTA */
+.nav__brand > span:last-child {
+	overflow: hidden;
+	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
@@ -364,6 +372,12 @@ main[id] {
 		display: none;
 	}
 
+	/* Booking stays reachable via the hero CTA and the menu sheet — keep the
+	   collapsed bar to just brand + Menu so nothing overlaps on narrow screens */
+	.nav__right .btn {
+		display: none;
+	}
+
 	.nav__toggle {
 		display: inline-block;
 	}
@@ -389,6 +403,9 @@ main[id] {
 	.nav__sheet .btn {
 		justify-self: start;
 		margin-block-start: var(--space-xs);
+	}
+	.hero__row{
+		margin-left: var(--space-lg)
 	}
 }
 
@@ -488,12 +505,13 @@ main[id] {
 .hero__cred {
 	display: grid;
 	gap: var(--space-3xs);
-	text-align: right;
+	text-align: left;
 	font-size: var(--text-lg);
 	color: var(--color-muted);
 }
 
 .hero__cred-role {
+	text-align: right;
 	font-weight: 600;
 	color: var(--color-ink);
 }
@@ -1014,6 +1032,9 @@ main[id] {
 	.steps {
 		grid-template-columns: minmax(0, 1fr);
 	}
+	.hero__cred-role {
+	text-align: unset;
+}
 }
 
 /* ---------- reduced motion ---------- */
