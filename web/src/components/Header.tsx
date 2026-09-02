@@ -92,7 +92,7 @@ export default function Header() {
             aria-label="Login to patient portal"
           >
             <span className="text-left leading-tight">
-              <span className="block text-[13px] font-bold underline-offset-4 group-hover:underline">
+              <span className="block text-[13px] font-bold underline-offset-4 group-hover:text-forest/70">
                 Login
               </span>
             </span>
