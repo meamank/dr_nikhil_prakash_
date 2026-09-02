@@ -26,6 +26,14 @@ dist-ssr/
 .env.test.local
 .env.production.local
 
+# Lockfiles — this repo uses bun.lock only (prevents Cloudflare from running `npm ci`)
+package-lock.json
+**/package-lock.json
+yarn.lock
+**/yarn.lock
+pnpm-lock.yaml
+**/pnpm-lock.yaml
+
 # Logs
 logs
 *.log
