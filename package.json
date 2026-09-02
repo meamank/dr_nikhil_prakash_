@@ -9,16 +9,11 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint"
+    "build": "bun --filter='*' run build",
+    "typecheck": "bun --filter='*' run typecheck",
+    "lint": "bun --filter='*' run lint"
   },
   "devDependencies": {
-    "turbo": "^2.5.0",
     "typescript": "^5.9.0"
-  },
-  "dependencies": {
-    "@lucide/astro": "^1.38.0"
   }
 }
