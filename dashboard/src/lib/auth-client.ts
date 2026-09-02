@@ -7,7 +7,16 @@ import {
 } from "better-auth/client/plugins"
 
 export const authClient = createAuthClient({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8787",
+  // Explicit override wins. In production the Worker serves this SPA and the
+  // API on ONE origin, so window.location.origin is correct. In dev the API
+  // runs on :8787 next to this dashboard on :5173.
+  baseURL:
+    import.meta.env.VITE_API_URL ||
+    (typeof window === "undefined"
+      ? "http://localhost:8787"
+      : import.meta.env.PROD
+        ? window.location.origin
+        : `${window.location.protocol}//${window.location.hostname}:8787`),
   plugins: [
     phoneNumberClient(),
     usernameClient(),
