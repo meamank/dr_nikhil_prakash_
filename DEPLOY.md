@@ -142,10 +142,17 @@ Just push to `main` — both projects deploy automatically.
 | Rollback Pages | Dashboard → `drnikhilprakash` → **Deployments** → **Rollback** |
 | Manual deploy (if needed) | `cd worker && bun run deploy` · `cd web && bun run build && npx wrangler pages deploy dist --project-name=drnikhilprakash` |
 
-## Local dev — unchanged
+## Local dev
+
+Run each app separately (no root `dev` script):
 
 ```bash
-bun run dev   # dashboard :5173 (HMR) · web :4321 · API :8787 · D1 local
+# Terminal 1 — marketing site
+cd web && bun run dev        # http://localhost:4321
+
+# Terminal 2 — portal + API (Worker serves dashboard via [assets])
+cd worker && bun run dev     # http://localhost:8787 (API + dashboard)
+# Dashboard HMR still on :5173 if you run `cd dashboard && bun run dev` separately
 ```
 
 `localhost:8787` also serves the last-built dashboard, mirroring production.
