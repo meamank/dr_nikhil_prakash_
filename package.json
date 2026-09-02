@@ -8,11 +8,6 @@
     "web",
     "packages/*"
   ],
-  "scripts": {
-    "build": "bun --filter='*' run build",
-    "typecheck": "bun --filter='*' run typecheck",
-    "lint": "bun --filter='*' run lint"
-  },
   "devDependencies": {
     "typescript": "^5.9.0"
   }
