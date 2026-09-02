@@ -6,6 +6,21 @@ import * as schema from "./db/schema"
 
 export type Env = {
   DB: D1Database
+  /**
+   * Comma-separated list of extra origins allowed to call the API during
+   * local development (e.g. "http://192.168.1.9:5173" when testing the
+   * dashboard from a phone on the LAN). Set in .dev.vars.
+   */
+  DEV_ORIGINS?: string
+}
+
+/** Origins allowed for CORS and better-auth (dashboard runs on :5173). */
+export function getAllowedOrigins(env?: Partial<Env>): string[] {
+  const extra = (env?.DEV_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+  return ["http://localhost:5173", ...extra]
 }
 
 
@@ -83,7 +98,7 @@ export function createAuth(env: Env) {
 
 
 
-    trustedOrigins: ["http://localhost:5173"],
+    trustedOrigins: getAllowedOrigins(env),
   })
 }
 

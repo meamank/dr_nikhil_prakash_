@@ -8,10 +8,18 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 export default defineConfig({
  
   base: process.env.VITE_BASE_URL ?? "/",
-  plugins: [tanstackRouter({
+  plugins: [
+    tanstackRouter({
       target: 'react',
       autoCodeSplitting: true,
-    }),react(), tailwindcss()],
+    }),
+    react(),
+    tailwindcss(),
+  ],
+  // bind to all interfaces so the dev server is reachable from other devices on the LAN
+  server: {
+    host: true,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin scrollbar for the mobile tab rail */
+.tab-rail {
+  scrollbar-width: none;
+}
+.tab-rail::-webkit-scrollbar {
+  display: none;
+}

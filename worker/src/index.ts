@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm"
 import { normalizePhone } from "@repo/shared"
 import { createDb } from "./db"
 import * as schema from "./db/schema"
-import { createAuth, type Env } from "./auth"
+import { createAuth, getAllowedOrigins, type Env } from "./auth"
 
 type Variables = {
   patchedRequest: Request
@@ -16,7 +16,10 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:5173"],
+    // Reflect the request Origin only when it's in the allowlist
+    // (localhost + any origins from DEV_ORIGINS, e.g. the LAN IP).
+    origin: (origin, c) =>
+      getAllowedOrigins(c.env).includes(origin) ? origin : undefined,
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,

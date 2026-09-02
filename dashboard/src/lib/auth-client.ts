@@ -7,7 +7,14 @@ import {
 } from "better-auth/client/plugins"
 
 export const authClient = createAuthClient({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8787",
+  // Explicit override wins; otherwise talk to the API on the same hostname the
+  // dashboard was opened from (works on localhost and from other devices on
+  // the LAN, e.g. http://192.168.1.9:8787 from a phone).
+  baseURL:
+    import.meta.env.VITE_API_URL ||
+    (typeof window !== "undefined"
+      ? `${window.location.protocol}//${window.location.hostname}:8787`
+      : "http://localhost:8787"),
   plugins: [
     phoneNumberClient(),
     usernameClient(),

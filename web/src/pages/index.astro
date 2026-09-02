@@ -1,169 +1,38 @@
 ---
-import '../styles/tokens.css';
-import '../styles/home.css';
-import { MapPin } from '@lucide/astro'
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header";
+import Hero from "../components/Hero";
+import ServiceCards from "../components/ServiceCards";
+import StatsBar from "../components/StatsBar";
+import About from "../components/About";
+import ServicesSection from "../components/ServicesSection";
+import BookAppointment from "../components/BookAppointment";
+import ReachUs from "../components/ReachUs";
+import CtaSection from "../components/CtaSection";
+import Footer from "../components/Footer";
+import ViewportBadge from "../components/ViewportBadge";
 ---
 
-<!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta
-			name="description"
-			content="Dr. (Maj) Nikhil Prakash — consultant physician. Unhurried consultations, preventive care, and chronic-disease management. Book an appointment."
-		/>
-		<meta name="generator" content={Astro.generator} />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<title>Dr. (Maj) Nikhil Prakash — Consultant Physician</title>
-	</head>
-	<body>
-		<a class="skip-link" href="#main">Skip to content</a>
+<Layout title="Dr. (Maj) Nikhil Prakash — Consultant Physician" description="Unhurried consultations, preventive care, and chronic-disease management. Book an appointment.">
+  <div class="mx-auto max-w-360 px-3 pb-3 pt-3 sm:px-6 sm:pb-6 sm:pt-6 lg:px-8 lg:pb-8 lg:pt-8">
+    <Header client:load />
 
-		<!-- Nav — lime pill bar: brand · links · Book appointment -->
-		<header class="nav">
-			<div class="nav__inner">
-				<a class="nav__brand" href="#top" aria-label="Dr. (Maj) Nikhil Prakash — home">
-					<span class="brand-mark" aria-hidden="true">+</span>
-					<span class="brand-name">Dr. (Maj) Nikhil Prakash</span>
-				</a>
-				<nav class="nav__center" aria-label="Primary">
-					<a class="nav__link is-active" href="#top" aria-current="page">Home</a>
-					<a class="nav__link" href="#about">About</a>
-					<a class="nav__link" href="#services">Services</a>
-					<a class="nav__link" href="#contact">Contact</a>
-				</nav>
-				<div class="nav__right">
-					<!-- TODO: wire to the booking flow -->
-					<a class="btn btn--dark btn--sm" href="#book">Book appointment</a>
-					<button
-						class="nav__toggle"
-						type="button"
-						aria-expanded="false"
-						aria-controls="mobile-menu"
-					>
-						Menu
-					</button>
-				</div>
-			</div>
-			<div class="nav__sheet" id="mobile-menu" hidden>
-				<a class="nav__link is-active" href="#top" aria-current="page">Home</a>
-				<a class="nav__link" href="#about">About</a>
-				<a class="nav__link" href="#services">Services</a>
-				<a class="nav__link" href="#contact">Contact</a>
-				<a class="btn btn--dark" href="#book">Book appointment</a>
-			</div>
-		</header>
+    <main class="mt-4 flex flex-col gap-4 sm:mt-6 sm:gap-5">
+      <Hero />
+      <ServiceCards />
+      <StatsBar />
+      <About />
+      <ServicesSection />
+      
+      <CtaSection />
+      <BookAppointment client:visible />
+      <ReachUs />
+    </main>
 
-		<main id="main">
-			<!-- Hero — three cards: intro (text + photo) · profile · tilted hours -->
-			<section class="hero" id="top" aria-labelledby="hero-heading">
-				<div class="hero__grid">
-					<div class="intro-card">
-						<div class="intro-card__copy">
-							<h1 class="intro-card__headline" id="hero-heading">
-								Medicine that starts with listening
-							</h1>
-							<p class="intro-card__subtext">
-								unhurried
-								consultations, plain-language explanations, and care that
-								starts with your story - not a prescription.
-							</p>
-							<div class="intro-card__actions">
-								<!-- TODO: wire to the booking flow -->
-								<a class="btn btn--dark" href="#book">Book an appointment</a>
-							</div>
-						</div>
-						<img
-							class="intro-card__photo"
-							src="/doctor.svg"
-							alt="Illustration of a friendly doctor"
-							fetchpriority="high"
-						/>
-					</div>
+    <div class="mt-4 sm:mt-6">
+      <Footer />
+    </div>
+  </div>
 
-					<div class="hero__aside">
-						<div class="profile-card">
-							<img
-								class="profile-card__photo"
-								src="/3d-doctor.png"
-								alt="Illustration of a doctor at work"
-								loading="lazy"
-							/>
-							
-								<p class="profile-card__name">Dr. (Maj) Nikhil Prakash</p>
-							<p class="profile-card__role">Consultant Physician</p>
-							<p class="profile-card__about">
-								Stomach, Kidney and Arthritis specialist.
-							</p>
-							<div class="profile-card__education">
-								<p>MBBS (AFMC, Pune)</p>
-								<p>M.D (Research &amp; Referral, Delhi)</p>
-							</div>
-							
-						</div>
-
-						<div class="location-card">
-							<div class="location-card__meta">
-								<MapPin color=var(--color-lime) size="18"/>
-								<div>
-									<p class="location-card__title">Road No.3, Juran Chhapra</p>
-									<p class="location-card__time">11 A.M - 6 P.M · Saturday Closed</p>
-								</div>
-							</div>
-							<div class="location-card__meta">
-								<MapPin color=var(--color-lime) size="18"/>
-								<div>
-									<p class="location-card__title">Bhagwanpur</p>
-									<p class="location-card__time">7 P.M - 10 P.M</p>
-								</div>
-							</div>
-							
-							
-						</div>
-					</div>
-				</div>
-
-				<!-- TODO: replace these figures with real numbers before launch -->
-				<dl class="hero__stats">
-					<div class="stat">
-						<span class="stat__icon" aria-hidden="true">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-								<path d="M12 5v14M5 12h14"></path>
-							</svg>
-						</span>
-						<dd>50k+</dd>
-						<dt>Satisfied Patients</dt>
-					</div>
-					<div class="stat">
-						<span class="stat__icon" aria-hidden="true">
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-								<path d="M12 5v14M5 12h14"></path>
-							</svg>
-						</span>
-						<dd>15+</dd>
-						<dt>Years of Experience</dt>
-					</div>
-				</dl>
-			</section>
-		</main>
-
-		<script>
-			// Mobile menu disclosure
-			const toggle = document.querySelector('.nav__toggle');
-			const sheet = document.getElementById('mobile-menu');
-			toggle?.addEventListener('click', () => {
-				if (!toggle || !sheet) return;
-				const open = toggle.getAttribute('aria-expanded') === 'true';
-				toggle.setAttribute('aria-expanded', String(!open));
-				sheet.hidden = open;
-			});
-			sheet?.addEventListener('click', (e) => {
-				if (e.target instanceof Element && e.target.closest('a') && sheet && toggle) {
-					sheet.hidden = true;
-					toggle.setAttribute('aria-expanded', 'false');
-				}
-			});
-		</script>
-	</body>
-</html>
+  <!-- <ViewportBadge client:load /> -->
+</Layout>
