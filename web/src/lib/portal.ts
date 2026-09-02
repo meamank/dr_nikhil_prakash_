@@ -12,13 +12,13 @@ const FALLBACK_PORTAL_URL =
 /**
  * URL of the patient portal login page.
  *
- * In the browser it points at the same hostname the site was opened from
- * (e.g. http://192.168.1.9:5173/login when browsing from a phone on the LAN),
- * so the link keeps working on any device. During SSR / without a window it
- * falls back to PUBLIC_PORTAL_URL or localhost.
+ * Dev: derived from the current hostname (e.g. http://192.168.1.9:5173/login
+ * when browsing from a phone on the LAN), so it works on any device.
+ * Production: always PUBLIC_PORTAL_URL (the hydrated Header must NOT rewrite
+ * it — the worker URL is the only correct portal address in prod).
  */
 export function getPortalUrl(): string {
-  if (typeof window !== "undefined") {
+  if (import.meta.env.DEV && typeof window !== "undefined") {
     return `${window.location.protocol}//${window.location.hostname}:${PORTAL_PORT}/login`;
   }
   return FALLBACK_PORTAL_URL;

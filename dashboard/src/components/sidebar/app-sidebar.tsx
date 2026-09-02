@@ -22,7 +22,7 @@ import {
   LogOut,
 } from "lucide-react"
 import ClinicHeader from "./ClinicHeader"
-import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router"
+import { Link, useMatchRoute } from "@tanstack/react-router"
 import Username from "../common/Username"
 import { signOut, useSession } from "@/lib/auth-client"
 
@@ -97,8 +97,6 @@ function NavItem({ title, url, icon: Icon, onNavigate }: NavItemProps) {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { setOpenMobile } = useSidebar()
 
-  const navigate = useNavigate()
-
   const { data: session } = useSession()
 
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -106,13 +104,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const handleLogout = async () => {
     setIsLoggingOut(true)
     try {
-      await signOut()
-      navigate({ to: "/login" })
+      const res = (await signOut()) as
+        | { success?: boolean; error?: unknown }
+        | undefined
+      // better-auth resolves (not throws) on HTTP errors — surface them
+      if (res?.error || res?.success === false) {
+        console.error("Sign out failed:", res?.error)
+      }
     } catch (err) {
       console.error("Sign out Error:", err)
-      window.location.href = "/login"
     } finally {
       setIsLoggingOut(false)
+      // Hard navigation (not router navigate) so any cached session state is
+      // dropped and the _auth guard revalidates against the cleared cookie.
+      window.location.assign("/login")
     }
   }
 

@@ -3,6 +3,27 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+# Serve the dashboard SPA from this same Worker — one origin for portal + API
+# means session cookies, CORS and CSRF all just work, even on *.workers.dev.
+# NOTE: build the dashboard before deploying (the `deploy` script does this).
+[assets]
+directory = "../dashboard/dist"
+not_found_handling = "single-page-application"
+# /api/* always hits the Worker; everything else is served from the SPA assets
+# (with index.html fallback for client-side routes like /login)
+run_worker_first = ["/api/*"]
+
+[vars]
+# Public URL of this Worker — better-auth uses it as baseURL and automatically
+# trusts this origin (required for sign-out / session endpoints to pass the
+# origin check on the same-origin portal).
+BETTER_AUTH_URL = "https://clinic-worker.amankr.workers.dev"
+
+# Custom domain routing — uncomment when the domain is on Cloudflare (DEPLOY.md)
+# routes = [
+#   { pattern = "api.drnikhilprakash.com", custom_domain = true }
+# ]
+
 # bind to all interfaces so the dev server is reachable from other devices on the LAN
 [dev]
 ip = "0.0.0.0"
@@ -10,5 +31,7 @@ ip = "0.0.0.0"
 [[d1_databases]]
 binding = "DB"
 database_name = "clinic-db"
-database_id = "local"           # placeholder — replace with real ID before remote deploy
+# PLACEHOLDER — replace with the real id from `wrangler d1 create clinic-db`
+# before deploying (local dev is unaffected; it uses a local SQLite via --local)
+database_id = "1bacd1e6-6278-412a-8e98-57fe4d6f4282"
 migrations_dir = "drizzle"

@@ -7,6 +7,17 @@ import * as schema from "./db/schema"
 export type Env = {
   DB: D1Database
   /**
+   * Secret used to sign sessions/cookies. REQUIRED in production — set with
+   * `wrangler secret put BETTER_AUTH_SECRET` (generate: openssl rand -base64 32).
+   * In local dev it can stay unset (better-auth falls back to an insecure dev secret).
+   */
+  BETTER_AUTH_SECRET?: string
+  /**
+   * Public URL of the API in production, e.g. "https://api.drnikhilprakash.com".
+   * Set in wrangler.toml [vars]; overridden in dev via .dev.vars.
+   */
+  BETTER_AUTH_URL?: string
+  /**
    * Comma-separated list of extra origins allowed to call the API during
    * local development (e.g. "http://192.168.1.9:5173" when testing the
    * dashboard from a phone on the LAN). Set in .dev.vars.
@@ -20,7 +31,13 @@ export function getAllowedOrigins(env?: Partial<Env>): string[] {
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean)
-  return ["http://localhost:5173", ...extra]
+  return [
+    "http://localhost:5173",
+    // Production frontends (Cloudflare Pages custom domains)
+    "https://drnikhilprakash.com",
+    "https://portal.drnikhilprakash.com",
+    ...extra,
+  ]
 }
 
 
@@ -29,7 +46,9 @@ export function createAuth(env: Env) {
   const db = drizzle(env.DB, { schema })
 
   return betterAuth({
-    baseURL: "http://localhost:8787",
+    baseURL: env.BETTER_AUTH_URL ?? "http://localhost:8787",
+    // Workers have no process.env — the secret must be passed explicitly
+    secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, {
       provider: "sqlite",
       // Map better-auth table names to our Drizzle schema

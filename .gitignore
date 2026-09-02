@@ -15,8 +15,11 @@ dist-ssr/
 .dev.vars
 .dev.vars.*
 
-# Environment variables
+# Environment variables — ignore ALL env files (use .env.example for templates)
 .env
+.env.*
+!.env.example
+!.env.*.example
 .env.local
 .env.*.local
 .env.development.local
@@ -200,3 +203,4 @@ mobile-hero.png
 .agent/skills/design-guidelines.md
 .agent/skills/skill.md
 .agent/skills/design-taste-frontend/SKILL.md
+DEPLOY.md
