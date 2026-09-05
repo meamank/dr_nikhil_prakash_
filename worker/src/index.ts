@@ -5,6 +5,8 @@ import { normalizePhone } from "@repo/shared"
 import { createDb } from "./db"
 import * as schema from "./db/schema"
 import { createAuth, getAllowedOrigins, type Env } from "./auth"
+import booking from "./routes/booking"
+import patients from "./routes/patients"
 
 type Variables = {
   patchedRequest: Request
@@ -85,9 +87,9 @@ app.all("/api/auth/*", (c) => {
 app.get("/api/health", (c) => c.json({ ok: true }))
 
 
-// Domain routes (to be filled in)
+// Domain routes
 
-// app.route("/api/patients", patients)
-// app.route("/api/appointments", appointments)
+app.route("/api/booking", booking)
+app.route("/api/patients", patients)
 
 export default app

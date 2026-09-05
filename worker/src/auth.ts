@@ -12,6 +12,11 @@ export type Env = {
    * In local dev it can stay unset (better-auth falls back to an insecure dev secret).
    */
   BETTER_AUTH_SECRET?: string
+  /** WhatsApp Cloud API — set via `wrangler secret put` (see whatsapp.ts) */
+  WHATSAPP_TOKEN?: string
+  WHATSAPP_PHONE_NUMBER_ID?: string
+  WHATSAPP_OTP_TEMPLATE?: string
+  WHATSAPP_BOOKING_TEMPLATE?: string
   /**
    * Public URL of the API in production, e.g. "https://api.drnikhilprakash.com".
    * Set in wrangler.toml [vars]; overridden in dev via .dev.vars.
@@ -25,7 +30,7 @@ export type Env = {
   DEV_ORIGINS?: string
 }
 
-/** Origins allowed for CORS and better-auth (dashboard runs on :5173). */
+/** Origins allowed for CORS and better-auth (dashboard :5173, web :4321). */
 export function getAllowedOrigins(env?: Partial<Env>): string[] {
   const extra = (env?.DEV_ORIGINS ?? "")
     .split(",")
@@ -33,7 +38,9 @@ export function getAllowedOrigins(env?: Partial<Env>): string[] {
     .filter(Boolean)
   return [
     "http://localhost:5173",
-    // Production frontends (Cloudflare Pages custom domains)
+    "http://localhost:4321",
+    // Production frontends (Cloudflare Pages + custom domains)
+    "https://drnikhilprakash.pages.dev",
     "https://drnikhilprakash.com",
     "https://portal.drnikhilprakash.com",
     ...extra,

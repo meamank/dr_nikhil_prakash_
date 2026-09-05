@@ -105,8 +105,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setIsLoggingOut(true)
     try {
       const res = (await signOut()) as
-        | { success?: boolean; error?: unknown }
-        | undefined
+        { success?: boolean; error?: unknown } | undefined
       // better-auth resolves (not throws) on HTTP errors — surface them
       if (res?.error || res?.success === false) {
         console.error("Sign out failed:", res?.error)

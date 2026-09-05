@@ -10,7 +10,7 @@ export const Route = createRootRoute({
 })
 function RootComponent() {
   return (
-    <ThemeProvider>
+    <ThemeProvider defaultTheme="light">
       <TooltipProvider>
         <Outlet />
         <Toaster richColors position="top-right" />

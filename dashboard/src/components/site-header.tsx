@@ -1,15 +1,37 @@
-import { useMatchRoute } from "@tanstack/react-router"
+import { Moon, Sun } from "lucide-react"
+import { useMatchRoute, useRouterState } from "@tanstack/react-router"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { useTheme } from "@/components/theme-provider"
+import { Button } from "@/components/ui/button"
 
 export function SiteHeader() {
+  const { theme, setTheme } = useTheme()
+  const isDark = theme === "dark"
   const routeMatch = useMatchRoute()
+  // Safe lookup: useRouterState never throws, unlike getRouteApi hooks which
+  // throw during the exit transition when the $patientId match is already gone.
+  const patientMatch = useRouterState({
+    select: (s) =>
+      s.matches.find(
+        (m) => m.routeId === "/_authenticated/patients/$patientId"
+      ),
+  })
+  const patientLoader = (patientMatch?.loaderData ?? null) as {
+    patient?: { fullName?: string }
+  } | null
+  const patientParams = (patientMatch?.params ?? {}) as {
+    patientId?: string
+  }
+  const isPatientPage = !!routeMatch({ to: "/patients/$patientId" })
+  const patientTitle =
+    patientLoader?.patient?.fullName ?? patientParams.patientId ?? "Patient"
   const title = routeMatch({ to: "/appointments" })
     ? "Appointments"
-    : routeMatch({ to: "/patients" })
-      ? "Patients"
-      : routeMatch({ to: "/patients/$patientId" })
-        ? "Patients"
+    : isPatientPage
+      ? patientTitle
+      : routeMatch({ to: "/patients" })
+        ? "All Patients"
         : routeMatch({ to: "/messages" })
           ? "Messages"
           : routeMatch({ to: "/settings" })
@@ -25,6 +47,16 @@ export function SiteHeader() {
           className="mx-2 data-[orientation=vertical]:h-4"
         />
         <h1 className="text-base font-medium">{title}</h1>
+        <div className="ml-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDark ? <Sun /> : <Moon />}
+          </Button>
+        </div>
       </div>
     </header>
   )

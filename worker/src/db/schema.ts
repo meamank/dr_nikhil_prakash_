@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
 import {
+  index,
   integer,
   sqliteTable,
   text,
@@ -113,13 +114,13 @@ export const pidCounter = sqliteTable("pid_counter", {
 // ---------------------------------------------------------------------------
 
 export const patients = sqliteTable("patients", {
-  // Clinic-generated identifier e.g. "PID-00001"
+  // Clinic-generated identifier e.g. "PID000001"
   pid: text("pid").primaryKey(),
   // Linked to a better-auth user if they self-registered or later claimed the record
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   fullName: text("full_name").notNull(),
   mobile: text("mobile").notNull(),
-  dob: text("dob"), // ISO date string "YYYY-MM-DD"
+  ageYears: integer("age_years"),
   gender: text("gender", { enum: ["male", "female", "other"] }),
   // Set when a staff member created this record at the front desk
   bookedByStaffId: text("booked_by_staff_id").references(() => user.id, {
@@ -136,19 +137,52 @@ export const patients = sqliteTable("patients", {
 
 export const appointments = sqliteTable("appointments", {
   id: text("id").primaryKey(), // uuid
-  patientPid: text("patient_pid")
+  // NULL until staff marks the visit Paid — PID is assigned at check-in.
+  // One mobile can book many patients, so the snapshot below is the source
+  // of truth for pre-PID requests.
+  patientPid: text("patient_pid").references(() => patients.pid, {
+    onDelete: "cascade",
+  }),
+  // 10-digit mobile entered at booking time (OTP stubbed for now — not verified).
+  bookedMobile: text("booked_mobile").notNull(),
+  // Snapshot of who the slot is for (entered at booking time).
+  patientName: text("patient_name").notNull(),
+  patientMobile: text("patient_mobile").notNull(),
+  patientAddress: text("patient_address"),
+  patientGender: text("patient_gender", {
+    enum: ["male", "female", "other"],
+  }),
+  patientAgeYears: integer("patient_age_years"),
+  clinic: text("clinic", { enum: ["juran_chhapra", "bhagwanpur"] })
     .notNull()
-    .references(() => patients.pid, { onDelete: "cascade" }),
+    .default("juran_chhapra"),
+  // Queue number per clinic per day (1, 2, 3…) — shown on the booking success screen.
+  queueNumber: integer("queue_number").notNull().default(0),
   // Who booked — either the patient's own userId or a staff userId
-  bookedBy: text("booked_by")
-    .notNull()
-    .references(() => user.id),
+  bookedBy: text("booked_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
   scheduledAt: integer("scheduled_at", { mode: "timestamp" }).notNull(),
   status: text("status", {
-    enum: ["scheduled", "in_progress", "done", "cancelled"],
+    enum: [
+      "not_paid",
+      "paid",
+      "in_progress",
+      "done",
+      "cancelled",
+      "no_show",
+    ],
   })
     .notNull()
-    .default("scheduled"),
+    .default("not_paid"),
+  paymentStatus: text("payment_status", { enum: ["unpaid", "paid"] })
+    .notNull()
+    .default("unpaid"),
+  paymentMode: text("payment_mode", { enum: ["cash", "upi"] }),
+  checkedInBy: text("checked_in_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  checkedInAt: integer("checked_in_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -222,6 +256,51 @@ export const prescriptions = sqliteTable("prescriptions", {
   whatsappSent: integer("whatsapp_sent", { mode: "boolean" })
     .notNull()
     .default(false),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+// ---------------------------------------------------------------------------
+// Booking OTP (STUBBED for now) + WhatsApp logs
+// OTP verification is stubbed — anyone can book with just a mobile number.
+// When WhatsApp is wired up, booking_otps will hold the hashed codes and
+// POST /api/booking/appointments will require a verified bookingToken.
+// PID login (username plugin) stays separate.
+// ---------------------------------------------------------------------------
+
+export const bookingOtps = sqliteTable(
+  "booking_otps",
+  {
+    id: text("id").primaryKey(), // uuid
+    mobile: text("mobile").notNull(), // 10-digit number (unverified while stubbed)
+    codeHash: text("code_hash").notNull(), // SHA-256 of the 6-digit code
+    attempts: integer("attempts").notNull().default(0),
+    verified: integer("verified", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index("booking_otps_mobile_idx").on(t.mobile)],
+)
+
+export const whatsappLogs = sqliteTable("whatsapp_logs", {
+  id: text("id").primaryKey(), // uuid
+  toMobile: text("to_mobile").notNull(),
+  template: text("template").notNull(), // otp | booking_confirm | pid_issued | reminder
+  appointmentId: text("appointment_id").references(() => appointments.id, {
+    onDelete: "set null",
+  }),
+  providerId: text("provider_id"), // Meta message id (wamid:...)
+  status: text("status", {
+    enum: ["queued", "sent", "delivered", "failed"],
+  })
+    .notNull()
+    .default("queued"),
+  error: text("error"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

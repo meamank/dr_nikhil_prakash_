@@ -32,7 +32,7 @@ const identifierSchema = z
       if (/^\+?\d+$/.test(val)) {
         return digits.length === 10
       }
-      // Otherwise username / PID (e.g. PID-00001, admin)
+      // Otherwise username / PID (e.g. PID000001, admin)
       return val.length >= 3
     },
     {
@@ -149,7 +149,7 @@ export function LoginForm({
                         id={field.name}
                         name={field.name}
                         type="text"
-                        placeholder="9123456789 or PID-0001 or doc@example.com"
+                        placeholder="9123456789 or PID000001 or doc@example.com"
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}

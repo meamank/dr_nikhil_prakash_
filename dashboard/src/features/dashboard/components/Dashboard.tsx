@@ -1,18 +1,5 @@
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import { DataTable } from "@/components/data-table"
 import { SectionCards } from "@/components/section-cards"
-
-const data = [
-  {
-    id: 1,
-    header: "Cover page",
-    type: "Cover page",
-    status: "In Process",
-    target: "18",
-    limit: "5",
-    reviewer: "Eddie Lake",
-  },
-]
 
 export default function Dashboard() {
   return (
@@ -21,7 +8,6 @@ export default function Dashboard() {
       <div className="px-4 lg:px-6">
         <ChartAreaInteractive />
       </div>
-      <DataTable data={data} />
     </div>
   )
 }

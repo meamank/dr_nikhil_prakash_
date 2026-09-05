@@ -5,18 +5,11 @@ import {
   usernameClient,
   inferAdditionalFields,
 } from "better-auth/client/plugins"
+import { apiBase } from "./api"
 
 export const authClient = createAuthClient({
-  // Explicit override wins. In production the Worker serves this SPA and the
-  // API on ONE origin, so window.location.origin is correct. In dev the API
-  // runs on :8787 next to this dashboard on :5173.
-  baseURL:
-    import.meta.env.VITE_API_URL ||
-    (typeof window === "undefined"
-      ? "http://localhost:8787"
-      : import.meta.env.PROD
-        ? window.location.origin
-        : `${window.location.protocol}//${window.location.hostname}:8787`),
+  // Same resolution as lib/api.ts — Worker serves this SPA + /api/* in prod.
+  baseURL: apiBase(),
   plugins: [
     phoneNumberClient(),
     usernameClient(),
@@ -57,7 +50,7 @@ export function detectIdentifierType(input: string): "phone" | "email" | "userna
     return "phone"
   }
   
-  // Anything else (e.g. PID-00001)
+  // Anything else (e.g. PID000001)
   return "username"
 }
 
