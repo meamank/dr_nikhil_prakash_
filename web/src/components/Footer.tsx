@@ -84,6 +84,9 @@ export default function Footer() {
               <li key={label}>
                 <a
                   href={portal ? portalUrl : href}
+                  {...(portal
+                    ? { target: "_blank" as const, rel: "noopener" as const }
+                    : {})}
                   className="text-[14px] text-white/65 transition-colors hover:text-lime"
                 >
                   {label}

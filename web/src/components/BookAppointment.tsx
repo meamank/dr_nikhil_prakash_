@@ -34,7 +34,6 @@ export default function BookAppointment() {
   const [age, setAge] = useState("");
   const [gender, setGender] = useState<"" | "male" | "female" | "other">("");
   const [clinic, setClinic] = useState<ClinicId>("juran_chhapra");
-  const [date, setDate] = useState("");
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,7 +44,7 @@ export default function BookAppointment() {
   } | null>(null);
 
   const { min, max } = allowedBookingDates();
-
+  const [date, setDate] = useState(min);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);

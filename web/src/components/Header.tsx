@@ -88,6 +88,8 @@ export default function Header() {
         <div className="flex items-center gap-3 sm:gap-5">
           <a
             href={portalUrl}
+            target="_blank"
+            rel="noopener"
             className="group flex items-center gap-1.5 text-forest transition-opacity hover:opacity-70"
             aria-label="Login to patient portal"
           >
@@ -148,6 +150,8 @@ export default function Header() {
           </ul>
           <a
             href={portalUrl}
+            target="_blank"
+            rel="noopener"
             onClick={() => setOpen(false)}
             className="mt-4 block rounded-pill border border-forest px-6 py-3 text-center text-sm font-semibold text-forest"
           >
