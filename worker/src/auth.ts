@@ -40,9 +40,9 @@ export function getAllowedOrigins(env?: Partial<Env>): string[] {
     "http://localhost:5173",
     "http://localhost:4321",
     // Production frontends (Cloudflare Pages + custom domains)
-    "https://drnikhilprakash.pages.dev",
-    "https://drnikhilprakash.com",
-    "https://portal.drnikhilprakash.com",
+    "https://drnikhil-web.pages.dev",
+    "https://drnikhil-web.pages.dev",
+    "https://portal.drnikhil-web.pages.dev",
     ...extra,
   ]
 }
