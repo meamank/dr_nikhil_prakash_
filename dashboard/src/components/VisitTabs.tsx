@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -5,73 +6,134 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-export function VisitTabs() {
+export type VisitTabItem = {
+  id: string
+  queueNumber: number | null
+  scheduledAt: string | number
+  clinic: string
+  status: string
+  paymentStatus: string
+}
+
+export type PatientTabInfo = {
+  pid: string
+  fullName: string
+  mobile: string
+  ageYears: number | null
+  gender: string | null
+}
+
+function fmtTabDate(v: string | number): string {
+  const d = new Date(typeof v === "number" && v < 1e12 ? v * 1000 : v)
+  if (Number.isNaN(d.getTime())) return "—"
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000)
+  const dd = String(ist.getUTCDate()).padStart(2, "0")
+  const mm = String(ist.getUTCMonth() + 1).padStart(2, "0")
+  const yy = String(ist.getUTCFullYear()).slice(2)
+  return `${dd}-${mm}-${yy}`
+}
+
+function fmtFullDate(v: string | number): string {
+  const d = new Date(typeof v === "number" && v < 1e12 ? v * 1000 : v)
+  if (Number.isNaN(d.getTime())) return "—"
+  return d.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "medium",
+    timeStyle: "short",
+  })
+}
+
+export function VisitTabs({
+  patient,
+  visits,
+  onAddVisit,
+}: {
+  patient: PatientTabInfo
+  visits: VisitTabItem[]
+  onAddVisit?: () => void
+}) {
   return (
-    <Tabs defaultValue="overview" className="w-100">
-      <TabsList>
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        <TabsTrigger value="reports">Reports</TabsTrigger>
-        <TabsTrigger value="settings">Settings</TabsTrigger>
-      </TabsList>
+    <Tabs defaultValue="overview" className="w-full">
+      <div className="flex flex-wrap items-center gap-2">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          {visits.map((v) => (
+            <TabsTrigger key={v.id} value={v.id}>
+              {fmtTabDate(v.scheduledAt)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {onAddVisit && (
+          <Button size="sm" onClick={onAddVisit} className="ml-auto">
+            + Add visit
+          </Button>
+        )}
+      </div>
       <TabsContent value="overview">
         <Card>
           <CardHeader>
-            <CardTitle>Overview</CardTitle>
+            <CardTitle>
+              {patient.fullName}{" "}
+              <span className="font-mono text-sm text-muted-foreground">
+                {patient.pid}
+              </span>
+            </CardTitle>
             <CardDescription>
-              View your key metrics and recent project activity. Track progress
-              across all your active projects.
+              {patient.ageYears != null ? `${patient.ageYears}y` : "—"}
+              {patient.gender ? ` · ${patient.gender}` : ""} · {patient.mobile}{" "}
+              · {visits.length} visit
+              {visits.length === 1 ? "" : "s"}
             </CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            You have 12 active projects and 3 pending tasks.
+          <CardContent>
+            {visits.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No visits yet.</p>
+            ) : (
+              <ul className="divide-y">
+                {visits.map((v) => (
+                  <li
+                    key={v.id}
+                    className="flex flex-wrap items-center gap-3 py-2.5"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-sm font-extrabold tabular-nums">
+                      #{v.queueNumber ?? "—"}
+                    </span>
+                    <div className="min-w-40 flex-1">
+                      <p className="text-sm font-medium">
+                        {fmtFullDate(v.scheduledAt)}
+                      </p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {v.clinic.replace("_", " ")}
+                      </p>
+                    </div>
+                    <Badge variant="outline">{v.status}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </TabsContent>
-      <TabsContent value="analytics">
-        <Card>
-          <CardHeader>
-            <CardTitle>Analytics</CardTitle>
-            <CardDescription>
-              Track performance and user engagement metrics. Monitor trends and
-              identify growth opportunities.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Page views are up 25% compared to last month.
-          </CardContent>
-        </Card>
-      </TabsContent>
-      <TabsContent value="reports">
-        <Card>
-          <CardHeader>
-            <CardTitle>Reports</CardTitle>
-            <CardDescription>
-              Generate and download your detailed reports. Export data in
-              multiple formats for analysis.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            You have 5 reports ready and available to export.
-          </CardContent>
-        </Card>
-      </TabsContent>
-      <TabsContent value="settings">
-        <Card>
-          <CardHeader>
-            <CardTitle>Settings</CardTitle>
-            <CardDescription>
-              Manage your account preferences and options. Customize your
-              experience to fit your needs.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Configure notifications, security, and themes.
-          </CardContent>
-        </Card>
-      </TabsContent>
+      {visits.map((v) => (
+        <TabsContent key={v.id} value={v.id}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Visit · {fmtFullDate(v.scheduledAt)}</CardTitle>
+              <CardDescription>
+                Queue #{v.queueNumber ?? "—"} ·{" "}
+                <span className="capitalize">{v.clinic.replace("_", " ")}</span>{" "}
+                · {v.status} · {v.paymentStatus}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Vitals, examination and prescription forms for this visit go here.
+            </CardContent>
+          </Card>
+        </TabsContent>
+      ))}
     </Tabs>
   )
 }
