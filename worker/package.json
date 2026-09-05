@@ -25,6 +25,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "@repo/shared": "workspace:*",
     "better-auth": "^1.7.1",
     "drizzle-orm": "^0.45.2",

@@ -143,9 +143,8 @@ export const appointments = sqliteTable("appointments", {
   patientPid: text("patient_pid").references(() => patients.pid, {
     onDelete: "cascade",
   }),
-  // 10-digit mobile entered at booking time (OTP stubbed for now — not verified).
-  bookedMobile: text("booked_mobile").notNull(),
   // Snapshot of who the slot is for (entered at booking time).
+  // Single mobile field — the patient's number. Editable via PATCH.
   patientName: text("patient_name").notNull(),
   patientMobile: text("patient_mobile").notNull(),
   patientAddress: text("patient_address"),

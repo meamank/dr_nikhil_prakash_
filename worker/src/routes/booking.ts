@@ -64,7 +64,7 @@ booking.post("/otp/verify", async (c) => {
 })
 
 // POST /api/booking/appointments
-// { patientName, address?, mobile, patientMobile?, age?, gender?,
+// { patientName, address?, mobile, age?, gender?,
 //   clinic, date } — date is YYYY-MM-DD, booking allowed for today + next 2 days.
 booking.post("/appointments", async (c) => {
   const body = await c.req
@@ -72,7 +72,6 @@ booking.post("/appointments", async (c) => {
       patientName?: string
       address?: string
       mobile?: string
-      patientMobile?: string
       patientAgeYears?: number
       patientGender?: "male" | "female" | "other"
       clinic?: "juran_chhapra" | "bhagwanpur"
@@ -84,15 +83,9 @@ booking.post("/appointments", async (c) => {
   if (!patientName || patientName.length < 2) {
     return bad(c, "Enter the patient's full name")
   }
-  const mobile = body?.mobile ? normalizePhone(body.mobile) : null
-  if (!mobile || !/^[6-9]\d{9}$/.test(mobile)) {
-    return bad(c, "Enter a valid 10-digit mobile number")
-  }
-  const patientMobile = body?.patientMobile
-    ? normalizePhone(body.patientMobile)
-    : mobile
+  const patientMobile = body?.mobile ? normalizePhone(body.mobile) : null
   if (!patientMobile || !/^[6-9]\d{9}$/.test(patientMobile)) {
-    return bad(c, "Enter a valid patient mobile number")
+    return bad(c, "Enter a valid 10-digit mobile number")
   }
   if (
     body?.patientGender &&
@@ -156,7 +149,6 @@ booking.post("/appointments", async (c) => {
   await db.insert(schema.appointments).values({
     id,
     patientPid: null,
-    bookedMobile: mobile,
     patientName,
     patientMobile,
     patientAddress: body?.address?.trim() || null,
@@ -191,7 +183,7 @@ booking.get("/appointments", async (c) => {
     const rows = await db
       .select()
       .from(schema.appointments)
-      .where(eq(schema.appointments.bookedMobile, mobileQ))
+      .where(eq(schema.appointments.patientMobile, mobileQ))
       .orderBy(desc(schema.appointments.createdAt))
       .limit(20)
     return c.json({ appointments: rows })
@@ -224,7 +216,6 @@ booking.patch("/appointments/:id", async (c) => {
     .json<{
       patientName?: string
       patientAddress?: string | null
-      bookedMobile?: string
       patientMobile?: string
       patientAgeYears?: number | null
       patientGender?: "male" | "female" | "other" | null
@@ -252,11 +243,6 @@ booking.patch("/appointments/:id", async (c) => {
   }
   if (body.patientAddress !== undefined) {
     patch.patientAddress = body.patientAddress?.trim() || null
-  }
-  if (body.bookedMobile !== undefined) {
-    const m = normalizePhone(body.bookedMobile)
-    if (!m || !/^[6-9]\d{9}$/.test(m)) return bad(c, "Enter a valid mobile number")
-    patch.bookedMobile = m
   }
   if (body.patientMobile !== undefined) {
     const m = normalizePhone(body.patientMobile)
@@ -311,9 +297,11 @@ booking.patch("/appointments/:id", async (c) => {
 })
 
 // POST /api/booking/appointments/:id/mark-paid (staff-only — TODO: require staff session)
-// Generates the PID, creates the patients row, links the appointment.
+// Body: { pid?: string } — if an existing PID is given, link to it (old
+// patient). Otherwise generate a new PID + patients row (new patient).
 booking.post("/appointments/:id/mark-paid", async (c) => {
   const id = c.req.param("id")
+  const body = await c.req.json<{ pid?: string }>().catch(() => null)
   const db = createDb(c.env.DB)
 
   const rows = await db
@@ -327,7 +315,29 @@ booking.post("/appointments/:id/mark-paid", async (c) => {
     return c.json({ ok: true, pid: appt.patientPid, already: true })
   }
 
-  // PID generation via the counter row.
+  // Old patient: link the existing PID, no new row, no counter bump.
+  const linkPid = body?.pid?.trim().toUpperCase()
+  if (linkPid) {
+    const existing = await db
+      .select({ pid: schema.patients.pid })
+      .from(schema.patients)
+      .where(eq(schema.patients.pid, linkPid))
+      .limit(1)
+    if (!existing[0]) return bad(c, `Patient ${linkPid} not found`, 404)
+    await db
+      .update(schema.appointments)
+      .set({
+        patientPid: linkPid,
+        status: "paid",
+        paymentStatus: "paid",
+        paymentMode: "cash",
+        checkedInAt: new Date(),
+      })
+      .where(eq(schema.appointments.id, id))
+    return c.json({ ok: true, pid: linkPid, linked: true })
+  }
+
+  // New patient: PID generation via the counter row.
   // NOTE: D1 has no SQL transactions (no BEGIN), so we use db.batch() which
   // D1 executes atomically.
   const counter = await db

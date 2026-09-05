@@ -8,6 +8,7 @@ import {
   EditAppointmentSheet,
   type AppointmentPatch,
 } from "./edit-appointment-sheet"
+import { LinkPidDialog } from "./link-pid-dialog"
 
 type Clinic = "juran_chhapra" | "bhagwanpur"
 
@@ -31,6 +32,8 @@ export default function AppointmentsPage() {
   const [payingId, setPayingId] = useState<string | null>(null)
   const [editing, setEditing] = useState<AppointmentRow | null>(null)
   const [saving, setSaving] = useState(false)
+  const [linking, setLinking] = useState<AppointmentRow | null>(null)
+  const [adding, setAdding] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -67,12 +70,26 @@ export default function AppointmentsPage() {
     }
   }
 
-  async function saveEdit(id: string, patch: AppointmentPatch) {
+  async function saveEdit(id: string | null, patch: AppointmentPatch) {
     setSaving(true)
     setError(null)
     try {
-      await apiPatch(`/api/booking/appointments/${id}`, patch)
-      setEditing(null)
+      if (id === null) {
+        // Create mode — staff booking (same shape as web booking API)
+        await apiPost("/api/booking/appointments", {
+          patientName: patch.patientName,
+          address: patch.patientAddress,
+          mobile: patch.patientMobile,
+          patientAgeYears: patch.patientAgeYears,
+          patientGender: patch.patientGender,
+          clinic: patch.clinic,
+          date: patch.date,
+        })
+        setAdding(false)
+      } else {
+        await apiPatch(`/api/booking/appointments/${id}`, patch)
+        setEditing(null)
+      }
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed")
@@ -117,6 +134,9 @@ export default function AppointmentsPage() {
         <Button variant="ghost" onClick={load} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
         </Button>
+        <Button className="ml-auto" onClick={() => setAdding(true)}>
+          + Add Appointment
+        </Button>
       </div>
 
       {error && (
@@ -142,6 +162,7 @@ export default function AppointmentsPage() {
           onMarkPaid={markPaid}
           payingId={payingId}
           onEdit={setEditing}
+          onLinkPid={setLinking}
         />
       )}
 
@@ -151,6 +172,23 @@ export default function AppointmentsPage() {
         onOpenChange={(open) => !open && setEditing(null)}
         onSave={saveEdit}
         saving={saving}
+        mode="edit"
+      />
+
+      <EditAppointmentSheet
+        appointment={null}
+        open={adding}
+        onOpenChange={(open) => !open && setAdding(false)}
+        onSave={saveEdit}
+        saving={saving}
+        mode="create"
+      />
+
+      <LinkPidDialog
+        appointment={linking}
+        open={linking !== null}
+        onOpenChange={(open) => !open && setLinking(null)}
+        onLinked={load}
       />
     </div>
   )

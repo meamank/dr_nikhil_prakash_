@@ -67,7 +67,6 @@ const columnHelper = createColumnHelper<
 export const schema = z.object({
   id: z.string(),
   patientPid: z.string().nullable(),
-  bookedMobile: z.string(),
   patientName: z.string(),
   patientMobile: z.string(),
   patientAddress: z.string().nullable(),
@@ -139,11 +138,13 @@ export function DataTable({
   onMarkPaid,
   payingId,
   onEdit,
+  onLinkPid,
 }: {
   data: z.infer<typeof schema>[]
   onMarkPaid?: (id: string) => void
   payingId?: string | null
   onEdit?: (row: z.infer<typeof schema>) => void
+  onLinkPid?: (row: z.infer<typeof schema>) => void
 }) {
   const columns = React.useMemo(
     () =>
@@ -229,10 +230,10 @@ export function DataTable({
           ),
           enableHiding: false,
         }),
-        columnHelper.accessor("bookedMobile", {
+        columnHelper.accessor("patientMobile", {
           header: "Mobile",
           cell: ({ row }) => (
-            <span className="tabular-nums">{row.original.bookedMobile}</span>
+            <span className="tabular-nums">{row.original.patientMobile}</span>
           ),
         }),
         columnHelper.accessor("status", {
@@ -265,19 +266,30 @@ export function DataTable({
               {onMarkPaid &&
                 !row.original.patientPid &&
                 row.original.status !== "cancelled" && (
-                  <Button
-                    size="sm"
-                    disabled={payingId === row.original.id}
-                    onClick={() => onMarkPaid(row.original.id)}
-                  >
-                    {payingId === row.original.id ? "Issuing…" : "Mark Paid"}
-                  </Button>
+                  <>
+                    {onLinkPid && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onLinkPid(row.original)}
+                      >
+                        Link PID
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      disabled={payingId === row.original.id}
+                      onClick={() => onMarkPaid(row.original.id)}
+                    >
+                      {payingId === row.original.id ? "Issuing…" : "Mark Paid"}
+                    </Button>
+                  </>
                 )}
             </div>
           ),
         }),
       ]),
-    [onMarkPaid, payingId, onEdit]
+    [onMarkPaid, payingId, onEdit, onLinkPid]
   )
 
   const [rowSelection, setRowSelection] = React.useState({})

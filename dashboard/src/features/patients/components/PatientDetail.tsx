@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { apiGet, apiPatch } from "@/lib/api"
+import { FormLoader } from "@/components/FormLoader"
+import { VisitTabs } from "@/components/VisitTabs"
 
 const routeApi = getRouteApi("/_authenticated/patients/$patientId")
 
@@ -132,7 +134,7 @@ export default function PatientDetail() {
   if (loading) {
     return (
       <div className="flex flex-col gap-4 p-4 md:p-6">
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <FormLoader />
       </div>
     )
   }
@@ -164,172 +166,7 @@ export default function PatientDetail() {
         </p>
       )}
 
-      {/* Demographics */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">
-            {patient?.pid}{" "}
-            {patient?.userId ? (
-              <Badge variant="secondary" className="ml-2">
-                Portal linked
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="ml-2">
-                Not claimed
-              </Badge>
-            )}
-          </CardTitle>
-          {!editing ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditing(true)}
-            >
-              Edit
-            </Button>
-          ) : (
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setEditing(false)
-                  if (patient) {
-                    setName(patient.fullName)
-                    setMobile(patient.mobile)
-                    setAge(
-                      patient.ageYears != null ? String(patient.ageYears) : ""
-                    )
-                    setGender(patient.gender ?? "")
-                  }
-                }}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" onClick={save} disabled={saving}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          )}
-        </CardHeader>
-        <CardContent>
-          {!editing ? (
-            <dl className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground uppercase">
-                  Name
-                </dt>
-                <dd className="font-medium">{patient?.fullName}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground uppercase">
-                  Mobile
-                </dt>
-                <dd className="tabular-nums">{patient?.mobile}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground uppercase">
-                  Age
-                </dt>
-                <dd className="tabular-nums">
-                  {patient?.ageYears != null ? `${patient.ageYears}y` : "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-muted-foreground uppercase">
-                  Gender
-                </dt>
-                <dd className="capitalize">{patient?.gender ?? "—"}</dd>
-              </div>
-            </dl>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="pd-name">Name</Label>
-                <Input
-                  id="pd-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="pd-mobile">Mobile</Label>
-                <Input
-                  id="pd-mobile"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="pd-age">Age</Label>
-                <Input
-                  id="pd-age"
-                  type="number"
-                  min={0}
-                  max={130}
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="pd-gender">Gender</Label>
-                <Select
-                  value={gender || "unknown"}
-                  onValueChange={(v) => setGender(v === "unknown" ? "" : v)}
-                >
-                  <SelectTrigger id="pd-gender">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unknown">—</SelectItem>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Visit history */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Visits ({visits.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {visits.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              No visits yet.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {visits.map((v) => (
-                <li
-                  key={v.id}
-                  className="flex flex-wrap items-center gap-3 py-3"
-                >
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-sm font-extrabold tabular-nums">
-                    #{v.queueNumber ?? "—"}
-                  </span>
-                  <div className="min-w-40 flex-1">
-                    <p className="text-sm font-medium">
-                      {fmtDate(v.scheduledAt)}
-                    </p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {v.clinic.replace("_", " ")}
-                    </p>
-                  </div>
-                  <Badge variant="outline">
-                    {STATUS_LABELS[v.status] ?? v.status}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <VisitTabs />
 
       <Link to="/patients" className="text-sm underline underline-offset-4">
         ← Back to patients

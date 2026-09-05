@@ -22,7 +22,6 @@ import type { AppointmentRow } from "@/components/data-table"
 export type AppointmentPatch = {
   patientName?: string
   patientAddress?: string | null
-  bookedMobile?: string
   patientMobile?: string
   patientAgeYears?: number | null
   patientGender?: "male" | "female" | "other" | null
@@ -63,16 +62,17 @@ export function EditAppointmentSheet({
   onOpenChange,
   onSave,
   saving,
+  mode = "edit",
 }: {
   appointment: AppointmentRow | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (id: string, patch: AppointmentPatch) => void
+  onSave: (id: string | null, patch: AppointmentPatch) => void
   saving: boolean
+  mode?: "edit" | "create"
 }) {
   const [name, setName] = React.useState("")
   const [address, setAddress] = React.useState("")
-  const [bookedMobile, setBookedMobile] = React.useState("")
   const [patientMobile, setPatientMobile] = React.useState("")
   const [age, setAge] = React.useState("")
   const [gender, setGender] = React.useState("")
@@ -83,10 +83,10 @@ export function EditAppointmentSheet({
   const [status, setStatus] = React.useState<string>("not_paid")
 
   React.useEffect(() => {
-    if (appointment && open) {
+    if (!open) return
+    if (appointment && mode === "edit") {
       setName(appointment.patientName)
       setAddress(appointment.patientAddress ?? "")
-      setBookedMobile(appointment.bookedMobile)
       setPatientMobile(appointment.patientMobile)
       setAge(
         appointment.patientAgeYears != null
@@ -99,16 +99,25 @@ export function EditAppointmentSheet({
       )
       setDate(toDateInput(appointment.scheduledAt))
       setStatus(appointment.status)
+    } else if (mode === "create") {
+      setName("")
+      setAddress("")
+      setPatientMobile("")
+      setAge("")
+      setGender("")
+      setClinic("juran_chhapra")
+      const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
+      setDate(ist.toISOString().slice(0, 10))
+      setStatus("not_paid")
     }
-  }, [appointment, open])
+  }, [appointment, open, mode])
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!appointment) return
+    if (mode === "edit" && !appointment) return
     const patch: AppointmentPatch = {
       patientName: name.trim(),
       patientAddress: address.trim() || null,
-      bookedMobile: bookedMobile.trim(),
       patientMobile: patientMobile.trim(),
       patientAgeYears: age.trim() === "" ? null : Number(age),
       patientGender: (gender || null) as AppointmentPatch["patientGender"],
@@ -116,18 +125,22 @@ export function EditAppointmentSheet({
       date,
       status,
     }
-    onSave(appointment.id, patch)
+    onSave(mode === "edit" ? appointment!.id : null, patch)
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Edit appointment</SheetTitle>
+          <SheetTitle>
+            {mode === "create" ? "Add appointment" : "Edit appointment"}
+          </SheetTitle>
           <SheetDescription>
-            {appointment
+            {mode === "edit" && appointment
               ? `Queue #${appointment.queueNumber} · ${appointment.id.slice(0, 8)}`
-              : ""}
+              : mode === "create"
+                ? "Book a slot for a walk-in or phone patient."
+                : ""}
           </SheetDescription>
         </SheetHeader>
         <form onSubmit={submit} className="flex flex-col gap-4 px-4 pb-4">
@@ -148,25 +161,14 @@ export function EditAppointmentSheet({
               onChange={(e) => setAddress(e.target.value)}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ea-booked">Booked mobile</Label>
-              <Input
-                id="ea-booked"
-                value={bookedMobile}
-                onChange={(e) => setBookedMobile(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ea-patient-mobile">Patient mobile</Label>
-              <Input
-                id="ea-patient-mobile"
-                value={patientMobile}
-                onChange={(e) => setPatientMobile(e.target.value)}
-                required
-              />
-            </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ea-patient-mobile">Mobile</Label>
+            <Input
+              id="ea-patient-mobile"
+              value={patientMobile}
+              onChange={(e) => setPatientMobile(e.target.value)}
+              required
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
@@ -244,7 +246,13 @@ export function EditAppointmentSheet({
           </div>
           <SheetFooter>
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save changes"}
+              {saving
+                ? mode === "create"
+                  ? "Booking…"
+                  : "Saving…"
+                : mode === "create"
+                  ? "Book appointment"
+                  : "Save changes"}
             </Button>
           </SheetFooter>
         </form>

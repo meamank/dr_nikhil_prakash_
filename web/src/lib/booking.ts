@@ -44,7 +44,6 @@ export async function createBookingAppointment(input: {
   patientName: string;
   address?: string;
   mobile: string;
-  patientMobile?: string;
   patientGender?: "male" | "female" | "other";
   patientAgeYears?: number;
   clinic: ClinicId;
