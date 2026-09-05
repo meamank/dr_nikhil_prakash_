@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { apiDelete, apiGet } from "@/lib/api"
 import { PatientsTable, type PatientRow } from "./patients-table"
+import { ConfirmDialog } from "@/components/ConfirmDialog"
 
 export default function PatientsListPage() {
   const [q, setQ] = useState("")
@@ -12,6 +14,7 @@ export default function PatientsListPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [deletingPid, setDeletingPid] = useState<string | null>(null)
+  const [pendingPid, setPendingPid] = useState<string | null>(null)
 
   async function load(query = q) {
     setLoading(true)
@@ -26,7 +29,9 @@ export default function PatientsListPage() {
       setRows(data?.patients ?? [])
       setTotal(data?.total ?? 0)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load patients")
+      const msg = e instanceof Error ? e.message : "Failed to load patients"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -37,19 +42,26 @@ export default function PatientsListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function remove(pid: string) {
-    if (!window.confirm(`Delete patient ${pid} and all their visits?`)) return
+  async function confirmDelete() {
+    if (!pendingPid) return
+    const pid = pendingPid
+    setPendingPid(null)
     setDeletingPid(pid)
     setError(null)
     try {
       await apiDelete(`/api/patients/${encodeURIComponent(pid)}`)
+      toast.success(`Patient ${pid} deleted`)
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed")
+      const msg = e instanceof Error ? e.message : "Delete failed"
+      setError(msg)
+      toast.error(msg)
     } finally {
       setDeletingPid(null)
     }
   }
+
+  const pendingPatient = rows.find((r) => r.pid === pendingPid)
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
@@ -92,11 +104,26 @@ export default function PatientsListPage() {
           </CardContent>
         </Card>
       ) : (
-        <PatientsTable
-          data={rows}
-          onDelete={remove}
-          deletingPid={deletingPid}
-        />
+        <>
+          <PatientsTable
+            data={rows}
+            onDelete={setPendingPid}
+            deletingPid={deletingPid}
+          />
+          <ConfirmDialog
+            open={pendingPid !== null}
+            onOpenChange={(open) => !open && setPendingPid(null)}
+            title="Delete patient?"
+            description={
+              pendingPatient
+                ? `Delete ${pendingPatient.fullName} (${pendingPid}) and all their visits? This cannot be undone.`
+                : "Delete this patient and all their visits? This cannot be undone."
+            }
+            confirmLabel="Delete patient"
+            onConfirm={confirmDelete}
+            loading={deletingPid !== null}
+          />
+        </>
       )}
     </div>
   )
