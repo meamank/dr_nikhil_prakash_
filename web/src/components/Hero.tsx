@@ -86,7 +86,7 @@ export default function Hero() {
         </article>
 
         {/* Open clinic ticket — tilted */}
-        <div className="rotate-[4.5deg] rounded-[26px] bg-forest px-6 py-3 text-white shadow-xl shadow-forest/20">
+        <div className="rounded-[26px] bg-forest px-6 py-3 text-white shadow-xl shadow-forest/20">
           <div className="flex items-center gap-3">
             <MapPin color="var(--color-lime)" size="18" />
             <div>

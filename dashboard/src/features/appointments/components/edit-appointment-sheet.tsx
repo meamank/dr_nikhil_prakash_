@@ -104,7 +104,7 @@ export function EditAppointmentSheet({
       setAddress("")
       setPatientMobile("")
       setAge("")
-      setGender("")
+      setGender("male")
       setClinic("juran_chhapra")
       const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
       setDate(ist.toISOString().slice(0, 10))
@@ -229,21 +229,30 @@ export function EditAppointmentSheet({
               />
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ea-status">Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger id="ea-status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {mode === "edit" ? (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="ea-status">Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger id="ea-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <Label>Status</Label>
+              <p className="text-sm font-medium text-muted-foreground">
+                Not Paid — set automatically for new bookings.
+              </p>
+            </div>
+          )}
           <SheetFooter>
             <Button type="submit" disabled={saving}>
               {saving
