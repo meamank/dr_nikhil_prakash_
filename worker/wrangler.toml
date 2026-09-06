@@ -17,7 +17,7 @@ run_worker_first = ["/api/*"]
 # Public URL of this Worker — better-auth uses it as baseURL and automatically
 # trusts this origin (required for sign-out / session endpoints to pass the
 # origin check on the same-origin portal).
-BETTER_AUTH_URL = "https://clinic-worker.amankr.workers.dev"
+BETTER_AUTH_URL = "https://portal.drnikhilprakash.com"
 
 # Custom domain routing — uncomment when the domain is on Cloudflare (DEPLOY.md)
 # routes = [
@@ -33,5 +33,5 @@ binding = "DB"
 database_name = "clinic-db"
 # PLACEHOLDER — replace with the real id from `wrangler d1 create clinic-db`
 # before deploying (local dev is unaffected; it uses a local SQLite via --local)
-database_id = "1bacd1e6-6278-412a-8e98-57fe4d6f4282"
+database_id = "35df72c1-9cfd-4be0-b0a6-6f98a314a0e5"
 migrations_dir = "drizzle"
