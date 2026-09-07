@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm"
 import {
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -304,3 +305,26 @@ export const whatsappLogs = sqliteTable("whatsapp_logs", {
     .notNull()
     .default(sql`(unixepoch())`),
 })
+
+// Shared vocabulary for the visit form, independent of patient records.
+export const chiefComplaints = sqliteTable("chief_complaints", {
+  normalizedLabel: text("normalized_label").primaryKey(),
+  label: text("label").notNull(),
+})
+
+export const clinicalOptions = sqliteTable(
+  "clinical_options",
+  {
+    category: text("category", {
+      enum: [
+        "diagnosis",
+        "previous_medical_history",
+        "lab_reports",
+        "medicines_prescribed",
+      ],
+    }).notNull(),
+    normalizedLabel: text("normalized_label").notNull(),
+    label: text("label").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.category, table.normalizedLabel] })],
+)

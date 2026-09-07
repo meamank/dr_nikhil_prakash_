@@ -18,20 +18,9 @@ type Patient = {
   createdAt: string | number
 }
 
-type Visit = {
-  id: string
-  patientPid: string | null
-  clinic: string
-  queueNumber: number
-  scheduledAt: string | number
-  status: string
-  paymentStatus: string
-}
-
 export default function PatientDetail() {
   const { patientId } = routeApi.useParams()
   const [patient, setPatient] = useState<Patient | null>(null)
-  const [visits, setVisits] = useState<Visit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,11 +30,9 @@ export default function PatientDetail() {
     try {
       const data = await apiGet<{
         patient?: Patient
-        appointments?: Visit[]
       }>(`/api/patients/${encodeURIComponent(patientId)}`)
       if (!data?.patient) throw new Error("Patient not found")
       setPatient(data.patient)
-      setVisits(data.appointments ?? [])
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load patient")
     } finally {
@@ -102,7 +89,6 @@ export default function PatientDetail() {
             ageYears: patient.ageYears,
             gender: patient.gender,
           }}
-          visits={visits}
         />
       )}
 
