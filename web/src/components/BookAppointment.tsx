@@ -18,14 +18,19 @@ const CLINICS: { id: ClinicId; label: string; hours: string }[] = [
     label: "Juran Chhapra",
     hours: "11 am – 6 pm · Sat closed",
   },
-  { id: "bhagwanpur", label: "Bhagwanpur", hours: "7 pm – 10 pm · Daily" },
+  { id: "bhagwanpur", label: "Bhagwanpur", hours: "7 pm – 10 pm · Sun Closed" },
 ];
 
 const inputClasses =
-  "w-full rounded-2xl border border-ink/10 bg-shell/60 px-4 py-3 text-[15px] text-ink placeholder:text-ink/40 focus:border-forest focus:bg-white focus:outline-none";
+  "w-full rounded-xl border border-ink/10 bg-shell/60 px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-forest focus:bg-white focus:outline-none";
 
 const labelClasses =
-  "mb-1.5 block text-[13px] font-bold uppercase tracking-wide text-forest";
+  "mb-1 block text-[11px] font-bold uppercase tracking-wide text-forest";
+
+const selectWrap = "relative";
+
+const selectArrow =
+  "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink/40";
 
 export default function BookAppointment() {
   const [name, setName] = useState("");
@@ -125,7 +130,7 @@ export default function BookAppointment() {
       </div>
 
       {/* Right — booking form */}
-      <div className="rounded-card bg-white p-6 text-ink shadow-[0_12px_28px_-6px_rgba(6,34,29,0.35)] sm:p-8">
+      <div className="rounded-card bg-white p-5 text-ink shadow-[0_12px_28px_-6px_rgba(6,34,29,0.35)] sm:p-6">
         {error && (
           <p
             role="alert"
@@ -170,7 +175,7 @@ export default function BookAppointment() {
             </button>
           </div>
         ) : (
-          <form className="flex flex-col gap-4" onSubmit={submit}>
+          <form className="flex flex-col gap-3" onSubmit={submit}>
             <div>
               <label htmlFor="book-name" className={labelClasses}>
                 Name
@@ -193,60 +198,58 @@ export default function BookAppointment() {
               </label>
               <textarea
                 id="book-address"
-                rows={2}
+                rows={1}
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
+                onInput={(e) => {
+                  const el = e.currentTarget;
+                  el.style.height = "auto";
+                  el.style.height = `${el.scrollHeight}px`;
+                }}
                 placeholder="Street, locality, city"
-                className={`${inputClasses} resize-none`}
+                className={`${inputClasses} resize-none overflow-hidden`}
               />
             </div>
 
-            <div>
-              <span className={labelClasses}>Clinic</span>
-              <div className="grid gap-2">
-                {CLINICS.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setClinic(c.id)}
-                    aria-pressed={clinic === c.id}
-                    className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
-                      clinic === c.id
-                        ? "border-forest bg-mint"
-                        : "border-ink/10 bg-shell/60 hover:border-forest"
-                    }`}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="book-clinic" className={labelClasses}>
+                  Clinic
+                </label>
+                <div className={selectWrap}>
+                  <select
+                    id="book-clinic"
+                    value={clinic}
+                    onChange={(e) => setClinic(e.target.value as ClinicId)}
+                    className={`${inputClasses} appearance-none pr-8`}
                   >
-                    <span className="block text-[15px] font-bold text-forest">
-                      {c.label}
-                    </span>
-                    <span className="block text-[13px] text-ink/55">
-                      {c.hours}
-                    </span>
-                  </button>
-                ))}
+                    {CLINICS.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label} — {c.hours}
+                      </option>
+                    ))}
+                  </select>
+                  <span className={selectArrow}>▾</span>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="book-date" className={labelClasses}>
+                  Date
+                </label>
+                <input
+                  id="book-date"
+                  type="date"
+                  required
+                  value={date}
+                  min={min}
+                  max={max}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={inputClasses}
+                />
               </div>
             </div>
 
-            <div>
-              <label htmlFor="book-date" className={labelClasses}>
-                Date
-              </label>
-              <input
-                id="book-date"
-                type="date"
-                required
-                value={date}
-                min={min}
-                max={max}
-                onChange={(e) => setDate(e.target.value)}
-                className={inputClasses}
-              />
-              <p className="mt-2 text-[13px] text-ink/55">
-                Booking open for today and the next 2 days.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div>
                 <label htmlFor="book-mobile" className={labelClasses}>
                   Mobile
@@ -278,33 +281,35 @@ export default function BookAppointment() {
                   className={inputClasses}
                 />
               </div>
-            </div>
-
-            <div>
-              <span className={labelClasses}>Gender</span>
-              <div className="flex gap-2">
-                {(["male", "female", "other"] as const).map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setGender(gender === g ? "" : g)}
-                    aria-pressed={gender === g}
-                    className={`flex-1 rounded-2xl border px-3 py-2.5 text-sm font-semibold capitalize transition-colors ${
-                      gender === g
-                        ? "border-forest bg-forest text-white"
-                        : "border-ink/10 bg-shell/60 text-ink hover:border-forest"
-                    }`}
+              <div>
+                <label htmlFor="book-gender" className={labelClasses}>
+                  Gender
+                </label>
+                <div className={selectWrap}>
+                  <select
+                    id="book-gender"
+                    value={gender}
+                    onChange={(e) =>
+                      setGender(
+                        e.target.value as "" | "male" | "female" | "other",
+                      )
+                    }
+                    className={`${inputClasses} appearance-none pr-8`}
                   >
-                    {g}
-                  </button>
-                ))}
+                    <option value="">Select</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <span className={selectArrow}>▾</span>
+                </div>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={busy}
-              className="mt-2 rounded-pill bg-forest px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:opacity-60"
+              className="mt-1 rounded-pill bg-forest px-8 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:opacity-60"
             >
               {busy ? "Booking…" : "Book appointment"}
             </button>

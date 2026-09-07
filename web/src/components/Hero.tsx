@@ -100,7 +100,9 @@ export default function Hero() {
             <MapPin color="var(--color-lime)" size="18" />
             <div>
               <p className="text-sm font-semibold">Bhagwanpur</p>
-              <p className="text-xs opacity-50">7 P.M - 10 P.M · Daily</p>
+              <p className="text-xs opacity-50">
+                7 P.M - 10 P.M · Sunday Closed
+              </p>
             </div>
           </div>
         </div>
