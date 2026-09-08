@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm"
+import { and, desc, eq, gte, like, lt, or, sql } from "drizzle-orm"
 import { normalizePhone } from "@repo/shared"
 import { createDb } from "../db"
 import * as schema from "../db/schema"
@@ -172,18 +172,23 @@ booking.post("/appointments", async (c) => {
 booking.get("/appointments", async (c) => {
   const clinic = c.req.query("clinic")
   const dateStr = c.req.query("date")
-  const mobileQ = c.req.query("mobile")
-    ? normalizePhone(c.req.query("mobile")!)
-    : null
+  const searchQ = c.req.query("q")?.trim()
 
   const db = createDb(c.env.DB)
 
-  // Lookup by mobile (staff search)
-  if (mobileQ) {
+  // Reception search: name, mobile, or address across recent appointments.
+  if (searchQ) {
+    const pattern = `%${searchQ}%`
     const rows = await db
       .select()
       .from(schema.appointments)
-      .where(eq(schema.appointments.patientMobile, mobileQ))
+      .where(
+        or(
+          like(schema.appointments.patientName, pattern),
+          like(schema.appointments.patientMobile, pattern),
+          like(schema.appointments.patientAddress, pattern),
+        ),
+      )
       .orderBy(desc(schema.appointments.createdAt))
       .limit(20)
     return c.json({ appointments: rows })

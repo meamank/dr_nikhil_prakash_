@@ -1,19 +1,55 @@
 export type T2dmAssessment = {
   symptomsDuration: string
-  familyHistory: "" | "Yes" | "No" | "Unknown"
-  polyuria: "" | "Yes" | "No" | "Unknown"
-  polydipsia: "" | "Yes" | "No" | "Unknown"
-  randomBloodGlucose: string
-  hba1c: string
+  polyuria: boolean
+  polydipsia: boolean
+  polyphagia: boolean
+  unexplainedWeightLoss: boolean
+  blurredVision: boolean
+  fatigueOrLethargy: boolean
+  age35OrOlder: boolean
+  overweightOrObese: boolean
+  highRiskEthnicity: boolean
+  firstDegreeRelative: boolean
+  historyOfCvd: boolean
+  hypertension: boolean
+  historyOfGdm: boolean
+  pcos: boolean
+  physicalInactivity: boolean
+  fruityBreathOdor: boolean
+  kussmaulRespirations: boolean
+  intractableNauseaVomiting: boolean
+  alteredMentalStatus: boolean
+  neuropathicSymptoms: boolean
+  footComplications: boolean
+  visionChangesOrFloaters: boolean
+  exertionalChestPainOrSob: boolean
 }
 
 export const emptyT2dmAssessment = (): T2dmAssessment => ({
   symptomsDuration: "",
-  familyHistory: "",
-  polyuria: "",
-  polydipsia: "",
-  randomBloodGlucose: "",
-  hba1c: "",
+  polyuria: false,
+  polydipsia: false,
+  polyphagia: false,
+  unexplainedWeightLoss: false,
+  blurredVision: false,
+  fatigueOrLethargy: false,
+  age35OrOlder: false,
+  overweightOrObese: false,
+  highRiskEthnicity: false,
+  firstDegreeRelative: false,
+  historyOfCvd: false,
+  hypertension: false,
+  historyOfGdm: false,
+  pcos: false,
+  physicalInactivity: false,
+  fruityBreathOdor: false,
+  kussmaulRespirations: false,
+  intractableNauseaVomiting: false,
+  alteredMentalStatus: false,
+  neuropathicSymptoms: false,
+  footComplications: false,
+  visionChangesOrFloaters: false,
+  exertionalChestPainOrSob: false,
 })
 
 export type IbsAssessment = {

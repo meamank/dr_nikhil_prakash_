@@ -56,6 +56,101 @@ const diagnosisField = {
   optionKey: "option",
 } as const
 
+const ibsCheckboxLabels: { key: keyof IbsAssessment; label: string }[] = [
+  { key: "romePainWeekly", label: "Abdominal pain ≥1 day/week" },
+  { key: "romeDefecationRelated", label: "Pain related to defecation" },
+  { key: "romeStoolChange", label: "Change in stool frequency or form" },
+  { key: "romeDurationSixMonths", label: "Symptoms for ≥6 months" },
+  { key: "redFlagWeightLoss", label: "Unintentional weight loss" },
+  { key: "redFlagBleeding", label: "GI bleeding" },
+  { key: "redFlagIronDeficiencyAnemia", label: "Iron deficiency anemia" },
+  { key: "redFlagFever", label: "Fever" },
+  { key: "redFlagNocturnalSymptoms", label: "Nocturnal symptoms" },
+  { key: "redFlagOnsetAfter50", label: "Onset after age 50" },
+  { key: "redFlagFamilyHistory", label: "Family history of CRC / IBD" },
+  { key: "missedWork", label: "Missed work" },
+  { key: "avoidsTravelOrSocial", label: "Avoids travel or social activities" },
+  { key: "toiletAnxiety", label: "Toilet anxiety" },
+  { key: "dominatesDailyThinking", label: "Dominates daily thinking" },
+  { key: "anxietySymptoms", label: "Current anxiety symptoms" },
+  { key: "lowMoodOrDepression", label: "Low mood or depression" },
+]
+
+const bristolLabels: Record<Exclude<IbsAssessment["bristolStoolType"], "">, string> = {
+  "1": "Bristol 1: Separate hard lumps",
+  "2": "Bristol 2: Sausage-shaped but lumpy",
+  "3": "Bristol 3: Sausage with cracks",
+  "4": "Bristol 4: Smooth, soft sausage or snake",
+  "5": "Bristol 5: Soft blobs with clear-cut edges",
+  "6": "Bristol 6: Mushy pieces with rugged edges",
+  "7": "Bristol 7: Watery, no solid pieces",
+}
+
+function t2dmSummary(value: T2dmAssessment): string[] {
+  const entries: string[] = []
+  if (value.symptomsDuration) entries.push(`Duration of symptoms: ${value.symptomsDuration}`)
+  const checkedLabels: Array<[Exclude<keyof T2dmAssessment, "symptomsDuration">, string]> = [
+    ["polyuria", "Polyuria"], ["polydipsia", "Polydipsia"],
+    ["polyphagia", "Polyphagia"], ["unexplainedWeightLoss", "Weight loss"],
+    ["blurredVision", "Blurred vision"], ["fatigueOrLethargy", "Fatigue / lethargy"],
+    ["age35OrOlder", "Age ≥35 years"], ["overweightOrObese", "Overweight or obese"],
+    ["highRiskEthnicity", "High-risk race/ethnicity"],
+    ["firstDegreeRelative", "First-degree relative with diabetes"],
+    ["historyOfCvd", "History of CVD"], ["hypertension", "Hypertension"],
+    ["historyOfGdm", "History of GDM"], ["pcos", "PCOS"],
+    ["physicalInactivity", "Physical inactivity"],
+    ["fruityBreathOdor", "Fruity breath odor"],
+    ["kussmaulRespirations", "Kussmaul respirations"],
+    ["intractableNauseaVomiting", "Intractable nausea/vomiting"],
+    ["alteredMentalStatus", "Altered mental status"],
+    ["neuropathicSymptoms", "Neuropathic symptoms"],
+    ["footComplications", "Foot complications"],
+    ["visionChangesOrFloaters", "Vision changes / floaters"],
+    ["exertionalChestPainOrSob", "Exertional chest pain / SOB"],
+  ]
+  entries.push(...checkedLabels.filter(([key]) => value[key]).map(([, label]) => label))
+  return entries
+}
+
+function ibsSummary(value: IbsAssessment): string[] {
+  const entries = ibsCheckboxLabels
+    .filter(({ key }) => value[key] === true)
+    .map(({ label }) => label)
+  if (value.bristolStoolType) entries.push(bristolLabels[value.bristolStoolType])
+  if (value.subtype) entries.push(`Subtype: ${value.subtype}`)
+  const scores: Array<[string, number]> = [
+    ["Pain severity", value.painSeverity],
+    ["Pain frequency", value.painFrequency],
+    ["Bloating", value.bloating],
+    ["Bowel dissatisfaction", value.bowelDissatisfaction],
+    ["Life interference", value.lifeInterference],
+  ]
+  scores.forEach(([label, score]) => {
+    if (score) entries.push(`${label}: ${score}/100`)
+  })
+  return entries
+}
+
+function inferredDiagnoses(value: {
+  t2dmAssessment: T2dmAssessment | null
+  ibsAssessment: IbsAssessment | null
+}): string[] {
+  return [
+    value.t2dmAssessment && hasT2dmAnswers(value.t2dmAssessment)
+      ? "T2DM"
+      : null,
+    value.ibsAssessment && hasIbsAnswers(value.ibsAssessment) ? "IBS" : null,
+  ].filter((diagnosis): diagnosis is string => diagnosis !== null)
+}
+
+function displayDiagnoses(value: {
+  diagnosis: string[]
+  t2dmAssessment: T2dmAssessment | null
+  ibsAssessment: IbsAssessment | null
+}): string[] {
+  return value.diagnosis.length > 0 ? value.diagnosis : inferredDiagnoses(value)
+}
+
 export type VisitData = {
   id: string
   label: string
@@ -105,7 +200,7 @@ function getVisitValues(visit: VisitData): VisitValues {
 }
 
 function hasT2dmAnswers(value: T2dmAssessment): boolean {
-  return Object.values(value).some((field) => field !== "")
+  return value.symptomsDuration !== "" || Object.values(value).some((field) => field === true)
 }
 
 function hasIbsAnswers(value: IbsAssessment): boolean {
@@ -127,14 +222,17 @@ export function VisitForm({
   onCancel,
 }: {
   visit: VisitData
-  onSave: (values: VisitValues) => void
+  onSave: (values: VisitValues) => void | Promise<void>
   onCancel: () => void
 }) {
   const [pendingOptionCount, setPendingOptionCount] = useState(0)
   const [confirmRemoveT2dm, setConfirmRemoveT2dm] = useState(false)
   const [confirmRemoveIbs, setConfirmRemoveIbs] = useState(false)
+  const [pendingAssessment, setPendingAssessment] = useState<"t2dm" | "ibs" | null>(null)
   const [isEditing, setIsEditing] = useState(visit.status === "draft")
   const [draft, setDraft] = useState<VisitValues>(() => getVisitValues(visit))
+  const [savingVisit, setSavingVisit] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const handlePendingChange = (pending: boolean) =>
     setPendingOptionCount((count) => Math.max(0, count + (pending ? 1 : -1)))
@@ -157,9 +255,55 @@ export function VisitForm({
     }))
   }
 
-  function handleSave() {
-    onSave(draft)
-    setIsEditing(false)
+  function addAssessment(next: "t2dm" | "ibs") {
+    const existingHasAnswers =
+      (draft.t2dmAssessment && hasT2dmAnswers(draft.t2dmAssessment)) ||
+      (draft.ibsAssessment && hasIbsAnswers(draft.ibsAssessment))
+    if ((next === "t2dm" && draft.ibsAssessment) || (next === "ibs" && draft.t2dmAssessment)) {
+      if (existingHasAnswers) {
+        setPendingAssessment(next)
+      } else {
+        replaceAssessment(next)
+      }
+      return
+    }
+    if (next === "t2dm") {
+      setDraft((prev) => ({ ...prev, t2dmAssessment: emptyT2dmAssessment() }))
+    } else {
+      setDraft((prev) => ({ ...prev, ibsAssessment: emptyIbsAssessment() }))
+    }
+  }
+
+  function replaceAssessment(next: "t2dm" | "ibs") {
+    setDraft((prev) => ({
+      ...prev,
+      t2dmAssessment: next === "t2dm" ? emptyT2dmAssessment() : null,
+      ibsAssessment: next === "ibs" ? emptyIbsAssessment() : null,
+    }))
+    setPendingAssessment(null)
+  }
+
+  async function handleSave() {
+    if (!draft.weight.trim()) {
+      setSaveError("Enter the patient's weight before saving.")
+      document.getElementById(`${visit.id}-weight`)?.focus()
+      return
+    }
+    const assessmentDiagnoses = inferredDiagnoses(draft)
+    const valuesToSave =
+      draft.diagnosis.length === 0 && assessmentDiagnoses.length > 0
+        ? { ...draft, diagnosis: assessmentDiagnoses }
+        : draft
+    setSavingVisit(true)
+    setSaveError(null)
+    try {
+      await onSave(valuesToSave)
+      setIsEditing(false)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Couldn’t save visit.")
+    } finally {
+      setSavingVisit(false)
+    }
   }
 
   function handleCancel() {
@@ -233,7 +377,7 @@ export function VisitForm({
             <div className="grid min-w-0 gap-1 sm:col-span-2">
               <dt className="text-sm text-muted-foreground">Diagnosis</dt>
               <dd className="text-sm font-medium break-words">
-                {visit.diagnosis.map(formatClinicalText).join(", ") ||
+                {displayDiagnoses(visit).map(formatClinicalText).join(", ") ||
                   "NO DIAGNOSIS"}
               </dd>
             </div>
@@ -243,16 +387,28 @@ export function VisitForm({
                 {formatClinicalText(visit.remarks) || "—"}
               </dd>
             </div>
-            {visit.t2dmAssessment && (
+            {visit.t2dmAssessment && t2dmSummary(visit.t2dmAssessment).length > 0 && (
               <div className="grid min-w-0 gap-1 sm:col-span-2">
                 <dt className="text-sm text-muted-foreground">T2DM assessment</dt>
-                <dd className="text-sm font-medium">Recorded</dd>
+                <dd className="text-sm font-medium">
+                  <ul className="grid gap-1">
+                    {t2dmSummary(visit.t2dmAssessment).map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </dd>
               </div>
             )}
-            {visit.ibsAssessment && (
+            {visit.ibsAssessment && ibsSummary(visit.ibsAssessment).length > 0 && (
               <div className="grid min-w-0 gap-1 sm:col-span-2">
                 <dt className="text-sm text-muted-foreground">IBS assessment</dt>
-                <dd className="text-sm font-medium">Recorded</dd>
+                <dd className="text-sm font-medium">
+                  <ul className="grid gap-1">
+                    {ibsSummary(visit.ibsAssessment).map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </dd>
               </div>
             )}
           </dl>
@@ -288,6 +444,9 @@ export function VisitForm({
               id={`${visit.id}-weight`}
               placeholder="70 kg"
               value={draft.weight}
+              autoFocus
+              required
+              aria-required="true"
               onChange={(event) => {
                 const weight = formatClinicalInput(event.currentTarget)
                 setDraft((prev) => ({ ...prev, weight }))
@@ -396,12 +555,7 @@ export function VisitForm({
             <Select
               value=""
               onValueChange={(value) => {
-                if (value === "t2dm" && !draft.t2dmAssessment) {
-                  setDraft((prev) => ({ ...prev, t2dmAssessment: emptyT2dmAssessment() }))
-                }
-                if (value === "ibs" && !draft.ibsAssessment) {
-                  setDraft((prev) => ({ ...prev, ibsAssessment: emptyIbsAssessment() }))
-                }
+                if (value === "t2dm" || value === "ibs") addAssessment(value)
               }}
             >
               <SelectTrigger id={`${visit.id}-assessment-form`} className="w-full">
@@ -458,15 +612,28 @@ export function VisitForm({
             />
           )}
         </div>
+        {saveError && (
+          <p role="alert" className="mt-4 text-sm text-destructive">
+            {saveError}
+          </p>
+        )}
         <div className="mt-4 flex gap-2">
-          <Button type="button" onClick={handleSave} disabled={pendingOptionCount > 0}>
-            {visit.status === "draft" ? "Save visit" : "Save changes"}
+          <Button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={pendingOptionCount > 0 || savingVisit}
+          >
+            {savingVisit
+              ? "Saving…"
+              : visit.status === "draft"
+                ? "Save visit"
+                : "Save changes"}
           </Button>
           <Button
             type="button"
             variant="outline"
             onClick={handleCancel}
-            disabled={pendingOptionCount > 0}
+            disabled={pendingOptionCount > 0 || savingVisit}
           >
             Cancel
           </Button>
@@ -492,6 +659,16 @@ export function VisitForm({
         onConfirm={() => {
           setDraft((prev) => ({ ...prev, ibsAssessment: null }))
           setConfirmRemoveIbs(false)
+        }}
+      />
+      <ConfirmDialog
+        open={pendingAssessment !== null}
+        onOpenChange={(open) => !open && setPendingAssessment(null)}
+        title="Replace disease assessment?"
+        description="The answers entered in the current assessment will be discarded."
+        confirmLabel="Replace assessment"
+        onConfirm={() => {
+          if (pendingAssessment) replaceAssessment(pendingAssessment)
         }}
       />
     </Card>

@@ -17,6 +17,32 @@ function bad(
   return c.json({ error: msg }, status)
 }
 
+type VisitDetails = Record<string, unknown> & { visitDate?: unknown }
+
+function validateVisitDetails(value: unknown): { visitDate: string; details: string } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const details = value as VisitDetails
+  if (
+    typeof details.visitDate !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(details.visitDate)
+  ) {
+    return null
+  }
+  const serialized = JSON.stringify(details)
+  if (serialized.length > 100_000) return null
+  return { visitDate: details.visitDate, details: serialized }
+}
+
+function presentVisit(visit: typeof schema.patientVisits.$inferSelect) {
+  let details: unknown = {}
+  try {
+    details = JSON.parse(visit.details)
+  } catch {
+    // A corrupt historical row should not prevent the remaining patient record loading.
+  }
+  return { ...visit, details }
+}
+
 // GET /api/patients?q=&limit=&offset= — list all PID holders, newest first.
 // q matches pid, name, or mobile (partial).
 patients.get("/", async (c) => {
@@ -122,6 +148,85 @@ patients.post("/", async (c) => {
     .where(eq(schema.patients.pid, pid))
     .limit(1)
   return c.json({ patient }, 201)
+})
+
+// GET /api/patients/:pid/visits — persisted clinical visit details, newest first.
+patients.get("/:pid/visits", async (c) => {
+  const pid = c.req.param("pid").trim().toUpperCase()
+  if (!pid) return bad(c, "Missing PID")
+
+  const db = createDb(c.env.DB)
+  const visits = await db
+    .select()
+    .from(schema.patientVisits)
+    .where(eq(schema.patientVisits.patientPid, pid))
+    .orderBy(desc(schema.patientVisits.visitDate), desc(schema.patientVisits.createdAt))
+  return c.json({ visits: visits.map(presentVisit) })
+})
+
+// POST /api/patients/:pid/visits — create a clinical visit for this patient.
+patients.post("/:pid/visits", async (c) => {
+  const pid = c.req.param("pid").trim().toUpperCase()
+  const payload = validateVisitDetails(await c.req.json().catch(() => null))
+  if (!payload) return bad(c, "Visit details must include a valid visit date")
+
+  const db = createDb(c.env.DB)
+  const [patient] = await db
+    .select({ pid: schema.patients.pid })
+    .from(schema.patients)
+    .where(eq(schema.patients.pid, pid))
+    .limit(1)
+  if (!patient) return bad(c, "Patient not found", 404)
+
+  const id = crypto.randomUUID()
+  await db.insert(schema.patientVisits).values({
+    id,
+    patientPid: pid,
+    visitDate: payload.visitDate,
+    details: payload.details,
+  })
+  const [visit] = await db
+    .select()
+    .from(schema.patientVisits)
+    .where(eq(schema.patientVisits.id, id))
+    .limit(1)
+  return c.json({ visit: presentVisit(visit) }, 201)
+})
+
+// PATCH /api/patients/:pid/visits/:visitId — replace a visit's form details.
+patients.patch("/:pid/visits/:visitId", async (c) => {
+  const pid = c.req.param("pid").trim().toUpperCase()
+  const visitId = c.req.param("visitId")
+  const payload = validateVisitDetails(await c.req.json().catch(() => null))
+  if (!payload) return bad(c, "Visit details must include a valid visit date")
+
+  const db = createDb(c.env.DB)
+  const [existing] = await db
+    .select({ id: schema.patientVisits.id })
+    .from(schema.patientVisits)
+    .where(
+      and(
+        eq(schema.patientVisits.id, visitId),
+        eq(schema.patientVisits.patientPid, pid),
+      ),
+    )
+    .limit(1)
+  if (!existing) return bad(c, "Visit not found", 404)
+
+  await db
+    .update(schema.patientVisits)
+    .set({
+      visitDate: payload.visitDate,
+      details: payload.details,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.patientVisits.id, visitId))
+  const [visit] = await db
+    .select()
+    .from(schema.patientVisits)
+    .where(eq(schema.patientVisits.id, visitId))
+    .limit(1)
+  return c.json({ visit: presentVisit(visit) })
 })
 
 // GET /api/patients/:pid — single patient + their appointments (newest first).

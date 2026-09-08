@@ -138,13 +138,11 @@ export function DataTable({
   onMarkPaid,
   payingId,
   onEdit,
-  onLinkPid,
 }: {
   data: z.infer<typeof schema>[]
   onMarkPaid?: (id: string) => void
   payingId?: string | null
   onEdit?: (row: z.infer<typeof schema>) => void
-  onLinkPid?: (row: z.infer<typeof schema>) => void
 }) {
   const columns = React.useMemo(
     () =>
@@ -266,30 +264,19 @@ export function DataTable({
               {onMarkPaid &&
                 !row.original.patientPid &&
                 row.original.status !== "cancelled" && (
-                  <>
-                    {onLinkPid && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onLinkPid(row.original)}
-                      >
-                        Link PID
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      disabled={payingId === row.original.id}
-                      onClick={() => onMarkPaid(row.original.id)}
-                    >
-                      {payingId === row.original.id ? "Issuing…" : "Mark Paid"}
-                    </Button>
-                  </>
+                  <Button
+                    size="sm"
+                    disabled={payingId === row.original.id}
+                    onClick={() => onMarkPaid(row.original.id)}
+                  >
+                    {payingId === row.original.id ? "Issuing…" : "Mark Paid"}
+                  </Button>
                 )}
             </div>
           ),
         }),
       ]),
-    [onMarkPaid, payingId, onEdit, onLinkPid]
+    [onMarkPaid, payingId, onEdit]
   )
 
   const [rowSelection, setRowSelection] = React.useState({})
@@ -328,7 +315,74 @@ export function DataTable({
 
   return (
     <div className="flex w-full flex-col justify-start gap-4">
-      <div className="overflow-hidden rounded-lg border">
+      <div className="grid gap-3 md:hidden">
+        {table.getRowModel().rows.length ? (
+          table.getRowModel().rows.map((row) => {
+            const appointment = row.original
+
+            return (
+              <div key={row.id} className="rounded-lg border p-3">
+                <div className="flex items-start gap-3">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-md bg-muted text-base font-semibold tabular-nums">
+                    {appointment.queueNumber}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {appointment.patientPid ? (
+                      <Link
+                        to="/patients/$patientId"
+                        params={{ patientId: appointment.patientPid }}
+                        className="block truncate text-sm font-medium hover:underline hover:underline-offset-4"
+                      >
+                        {appointment.patientName.toUpperCase()}
+                      </Link>
+                    ) : (
+                      <p className="truncate text-sm font-medium">
+                        {appointment.patientName.toUpperCase()}
+                      </p>
+                    )}
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {appointment.patientAddress?.toUpperCase() ||
+                        "Address not recorded"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-start gap-1">
+                    {onEdit && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="px-2 text-xs"
+                        onClick={() => onEdit(appointment)}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                    {onMarkPaid &&
+                      !appointment.patientPid &&
+                      appointment.status !== "cancelled" && (
+                        <Button
+                          size="sm"
+                          className="px-2 text-xs"
+                          disabled={payingId === appointment.id}
+                          onClick={() => onMarkPaid(appointment.id)}
+                        >
+                          {payingId === appointment.id
+                            ? "Issuing…"
+                            : "Mark Paid"}
+                        </Button>
+                      )}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        ) : (
+          <div className="rounded-lg border py-10 text-center text-sm text-muted-foreground">
+            No results.
+          </div>
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-lg border md:block">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (

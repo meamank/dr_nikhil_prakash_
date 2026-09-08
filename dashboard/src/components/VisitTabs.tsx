@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PatientOverview } from "@/features/patients/components/PatientOverview"
+import { apiGet, apiPatch, apiPost } from "@/lib/api"
 import {
   VisitForm,
   type VisitData,
@@ -37,6 +38,22 @@ function formatVisitLabel(visitDate: string): string {
   return `${day}-${month}-${year.slice(-2)}`
 }
 
+type StoredVisit = {
+  id: string
+  visitDate: string
+  details: VisitValues
+}
+
+function toVisitData(visit: StoredVisit): VisitData {
+  return {
+    ...visit.details,
+    id: visit.id,
+    visitDate: visit.visitDate,
+    label: formatVisitLabel(visit.visitDate),
+    status: "saved",
+  }
+}
+
 export function VisitTabs({
   patient,
   onAddVisit,
@@ -47,10 +64,29 @@ export function VisitTabs({
   visits?: VisitTabItem[]
   onAddVisit?: () => void
 }) {
-  // Local-only visits (no API yet). Lost on refresh — backend wiring
-  // comes later when all form fields are added.
   const [visitsState, setVisitsState] = useState<VisitData[]>([])
   const [active, setActive] = useState("overview")
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let activeRequest = true
+    apiGet<{ visits?: StoredVisit[] }>(
+      `/api/patients/${encodeURIComponent(patient.pid)}/visits`
+    )
+      .then((data) => {
+        if (activeRequest) setVisitsState((data.visits ?? []).map(toVisitData))
+      })
+      .catch((error) => {
+        if (activeRequest) {
+          setLoadError(
+            error instanceof Error ? error.message : "Couldn’t load visits."
+          )
+        }
+      })
+    return () => {
+      activeRequest = false
+    }
+  }, [patient.pid])
 
   function handleAddVisit() {
     onAddVisit?.()
@@ -80,19 +116,22 @@ export function VisitTabs({
     setActive(id)
   }
 
-  function handleSaveVisit(id: string, values: VisitValues) {
+  async function handleSaveVisit(id: string, values: VisitValues) {
+    const isNewVisit = id.startsWith("new-visit-")
+    const response = isNewVisit
+      ? await apiPost<{ visit: StoredVisit }>(
+          `/api/patients/${encodeURIComponent(patient.pid)}/visits`,
+          values
+        )
+      : await apiPatch<{ visit: StoredVisit }>(
+          `/api/patients/${encodeURIComponent(patient.pid)}/visits/${encodeURIComponent(id)}`,
+          values
+        )
+    const savedVisit = toVisitData(response.visit)
     setVisitsState((prev) =>
-      prev.map((d) =>
-        d.id === id
-          ? {
-              ...d,
-              ...values,
-              label: formatVisitLabel(values.visitDate),
-              status: "saved" as const,
-            }
-          : d
-      )
+      prev.map((visit) => (visit.id === id ? savedVisit : visit))
     )
+    if (active === id) setActive(savedVisit.id)
   }
 
   // Draft only: discard the tab (accidental-click escape).
@@ -127,8 +166,13 @@ export function VisitTabs({
           + Add Visit
         </Button>
       </div>
+      {loadError && (
+        <p role="alert" className="text-sm text-destructive">
+          {loadError}
+        </p>
+      )}
       <TabsContent value="overview">
-        <PatientOverview patient={patient} />
+        <PatientOverview patient={patient} visits={visitsState} />
       </TabsContent>
       {visitsState.map((d) => (
         <TabsContent key={d.id} value={d.id}>

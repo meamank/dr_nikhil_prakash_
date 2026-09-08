@@ -9,6 +9,7 @@ import booking from "./routes/booking"
 import patients from "./routes/patients"
 import chiefComplaints from "./routes/chief-complaints"
 import clinicalOptions from "./routes/clinical-options"
+import staff from "./routes/staff"
 
 type Variables = {
   patchedRequest: Request
@@ -95,5 +96,6 @@ app.route("/api/booking", booking)
 app.route("/api/patients", patients)
 app.route("/api/chief-complaints", chiefComplaints)
 app.route("/api/clinical-options", clinicalOptions)
+app.route("/api/staff", staff)
 
 export default app

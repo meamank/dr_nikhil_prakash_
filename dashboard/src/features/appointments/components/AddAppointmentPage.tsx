@@ -3,12 +3,13 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { apiPost } from "@/lib/api"
-
-type Clinic = "juran_chhapra" | "bhagwanpur"
+import {
+  AppointmentDetailsFields,
+  type AppointmentDetails,
+  type Clinic,
+} from "./appointment-details-fields"
 
 function todayIST(): string {
   const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
@@ -26,6 +27,45 @@ export default function AddAppointmentPage() {
   const [date, setDate] = useState(todayIST())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const details: AppointmentDetails = {
+    name,
+    address,
+    mobile,
+    age,
+    sex: gender,
+    clinic,
+    date,
+  }
+
+  function updateDetails<Field extends keyof AppointmentDetails>(
+    field: Field,
+    value: AppointmentDetails[Field]
+  ) {
+    switch (field) {
+      case "name":
+        setName(value as string)
+        break
+      case "address":
+        setAddress(value as string)
+        break
+      case "mobile":
+        setMobile(value as string)
+        break
+      case "age":
+        setAge(value as string)
+        break
+      case "sex":
+        setGender(value as string)
+        break
+      case "clinic":
+        setClinic(value as Clinic)
+        break
+      case "date":
+        setDate(value as string)
+        break
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -82,94 +122,12 @@ export default function AddAppointmentPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-            <div className="grid grid-cols-2 gap-4 md:col-span-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="add-appointment-clinic">Clinic</Label>
-                <NativeSelect
-                  id="add-appointment-clinic"
-                  className="w-full"
-                  value={clinic}
-                  onChange={(event) =>
-                    setClinic(
-                      event.target.value === "bhagwanpur"
-                        ? "bhagwanpur"
-                        : "juran_chhapra"
-                    )
-                  }
-                >
-                  <NativeSelectOption value="juran_chhapra">
-                    Juran Chhapra
-                  </NativeSelectOption>
-                  <NativeSelectOption value="bhagwanpur">
-                    Bhagwanpur
-                  </NativeSelectOption>
-                </NativeSelect>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="add-appointment-date">Date</Label>
-                <Input
-                  id="add-appointment-date"
-                  type="date"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="add-appointment-name">Patient name</Label>
-              <Input
-                id="add-appointment-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                required
-                autoFocus
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="add-appointment-mobile">Mobile</Label>
-              <Input
-                id="add-appointment-mobile"
-                inputMode="numeric"
-                value={mobile}
-                onChange={(event) => setMobile(event.target.value)}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <Label htmlFor="add-appointment-address">Address</Label>
-              <Input
-                id="add-appointment-address"
-                value={address}
-                onChange={(event) => setAddress(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="add-appointment-age">Age</Label>
-              <Input
-                id="add-appointment-age"
-                type="number"
-                min={0}
-                max={130}
-                value={age}
-                onChange={(event) => setAge(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="add-appointment-sex">Sex</Label>
-              <NativeSelect
-                id="add-appointment-sex"
-                className="w-full"
-                value={gender}
-                onChange={(event) => setGender(event.target.value)}
-              >
-                <NativeSelectOption value="">Select</NativeSelectOption>
-                <NativeSelectOption value="male">Male</NativeSelectOption>
-                <NativeSelectOption value="female">Female</NativeSelectOption>
-                <NativeSelectOption value="other">Other</NativeSelectOption>
-              </NativeSelect>
-            </div>
+            <AppointmentDetailsFields
+              idPrefix="add-appointment"
+              values={details}
+              onChange={updateDetails}
+              autoFocus
+            />
             <div className="flex flex-col gap-2 md:col-span-2">
               <Label>Status</Label>
               <p className="text-sm text-muted-foreground">

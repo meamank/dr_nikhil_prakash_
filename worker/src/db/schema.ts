@@ -137,6 +137,27 @@ export const patients = sqliteTable("patients", {
     .default(sql`(unixepoch())`),
 })
 
+// Structured clinical notes for a patient visit. Form details are kept as JSON
+// so assessment forms can evolve without requiring a migration per field.
+export const patientVisits = sqliteTable(
+  "patient_visits",
+  {
+    id: text("id").primaryKey(),
+    patientPid: text("patient_pid")
+      .notNull()
+      .references(() => patients.pid, { onDelete: "cascade" }),
+    visitDate: text("visit_date").notNull(), // YYYY-MM-DD
+    details: text("details").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [index("patient_visits_patient_date_idx").on(table.patientPid, table.visitDate)],
+)
+
 export const appointments = sqliteTable("appointments", {
   id: text("id").primaryKey(), // uuid
   // NULL until staff marks the visit Paid — PID is assigned at check-in.

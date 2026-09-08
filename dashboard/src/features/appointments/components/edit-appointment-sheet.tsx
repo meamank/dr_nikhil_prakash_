@@ -1,14 +1,10 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select"
 import {
   Sheet,
   SheetContent,
@@ -18,6 +14,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import type { AppointmentRow } from "@/components/data-table"
+import {
+  AppointmentDetailsFields,
+  type AppointmentDetails,
+} from "./appointment-details-fields"
 
 export type AppointmentPatch = {
   patientName?: string
@@ -128,9 +128,48 @@ export function EditAppointmentSheet({
     onSave(mode === "edit" ? appointment!.id : null, patch)
   }
 
+  const details: AppointmentDetails = {
+    name,
+    address,
+    mobile: patientMobile,
+    age,
+    sex: gender,
+    clinic,
+    date,
+  }
+
+  function updateDetails<Field extends keyof AppointmentDetails>(
+    field: Field,
+    value: AppointmentDetails[Field]
+  ) {
+    switch (field) {
+      case "name":
+        setName(value as string)
+        break
+      case "address":
+        setAddress(value as string)
+        break
+      case "mobile":
+        setPatientMobile(value as string)
+        break
+      case "age":
+        setAge(value as string)
+        break
+      case "sex":
+        setGender(value as string)
+        break
+      case "clinic":
+        setClinic(value as "juran_chhapra" | "bhagwanpur")
+        break
+      case "date":
+        setDate(value as string)
+        break
+    }
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto">
+      <SheetContent className="!w-screen !max-w-none overflow-y-auto sm:!max-w-none">
         <SheetHeader>
           <SheetTitle>
             {mode === "create" ? "Add appointment" : "Edit appointment"}
@@ -143,117 +182,38 @@ export function EditAppointmentSheet({
                 : ""}
           </SheetDescription>
         </SheetHeader>
-        <form onSubmit={submit} className="flex flex-col gap-4 px-4 pb-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ea-name">Patient name</Label>
-            <Input
-              id="ea-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ea-address">Address</Label>
-            <Input
-              id="ea-address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ea-patient-mobile">Mobile</Label>
-            <Input
-              id="ea-patient-mobile"
-              value={patientMobile}
-              onChange={(e) => setPatientMobile(e.target.value)}
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ea-age">Age</Label>
-              <Input
-                id="ea-age"
-                type="number"
-                min={0}
-                max={130}
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ea-gender">Gender</Label>
-              <Select
-                value={gender || "unknown"}
-                onValueChange={(v) => setGender(v === "unknown" ? "" : v)}
-              >
-                <SelectTrigger id="ea-gender">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unknown">—</SelectItem>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ea-clinic">Clinic</Label>
-              <Select
-                value={clinic}
-                onValueChange={(v) =>
-                  setClinic(v === "bhagwanpur" ? "bhagwanpur" : "juran_chhapra")
-                }
-              >
-                <SelectTrigger id="ea-clinic">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="juran_chhapra">Juran Chhapra</SelectItem>
-                  <SelectItem value="bhagwanpur">Bhagwanpur</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ea-date">Date</Label>
-              <Input
-                id="ea-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
-            </div>
-          </div>
+        <form onSubmit={submit} className="grid gap-4 px-4 pb-4 md:grid-cols-2">
+          <AppointmentDetailsFields
+            idPrefix="edit-appointment"
+            values={details}
+            onChange={updateDetails}
+            autoFocus
+          />
           {mode === "edit" ? (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="ea-status">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger id="ea-status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <Label htmlFor="edit-appointment-status">Status</Label>
+              <NativeSelect
+                id="edit-appointment-status"
+                className="w-full"
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+              >
+                {STATUSES.map((s) => (
+                  <NativeSelectOption key={s} value={s}>
                       {STATUS_LABELS[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 md:col-span-2">
               <Label>Status</Label>
               <p className="text-sm font-medium text-muted-foreground">
                 Not Paid — set automatically for new bookings.
               </p>
             </div>
           )}
-          <SheetFooter>
+          <SheetFooter className="md:col-span-2">
             <Button type="submit" disabled={saving}>
               {saving
                 ? mode === "create"

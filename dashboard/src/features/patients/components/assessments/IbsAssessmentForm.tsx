@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FormRadioGroup } from "@/components/FormRadioGroup"
@@ -79,11 +80,13 @@ function CheckRow({
   id,
   label,
   checked,
+  autoFocus = false,
   onCheckedChange,
 }: {
   id: string
   label: string
   checked: boolean
+  autoFocus?: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
@@ -91,6 +94,12 @@ function CheckRow({
       <Checkbox
         id={id}
         checked={checked}
+        autoFocus={autoFocus}
+        className={
+          autoFocus
+            ? "focus:border-ring focus:ring-3 focus:ring-ring/50"
+            : undefined
+        }
         onCheckedChange={(value) => onCheckedChange(value === true)}
       />
       <Label htmlFor={id} className="font-normal">
@@ -111,6 +120,15 @@ export function IbsAssessmentForm({
   onChange: (patch: Partial<IbsAssessment>) => void
   onRemove: () => void
 }) {
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const firstControl = document.getElementById(`${id}-romePainWeekly`)
+      firstControl?.scrollIntoView({ block: "center" })
+      firstControl?.focus()
+    }, 0)
+    return () => window.clearTimeout(timeout)
+  }, [id])
+
   const scoreTotal = scoreFields.reduce(
     (total, { key }) => total + value[key],
     0
@@ -150,12 +168,13 @@ export function IbsAssessmentForm({
               </p>
             </div>
             <div className="grid gap-2">
-              {romeFields.map(({ key, label }) => (
+              {romeFields.map(({ key, label }, index) => (
                 <CheckRow
                   key={key}
                   id={`${id}-${key}`}
                   label={label}
                   checked={value[key]}
+                  autoFocus={index === 0}
                   onCheckedChange={(checked) => updateBoolean(key, checked)}
                 />
               ))}

@@ -9,7 +9,6 @@ import {
   EditAppointmentSheet,
   type AppointmentPatch,
 } from "./edit-appointment-sheet"
-import { LinkPidDialog } from "./link-pid-dialog"
 
 type Clinic = "juran_chhapra" | "bhagwanpur"
 
@@ -33,14 +32,13 @@ export default function AppointmentsPage() {
   const [payingId, setPayingId] = useState<string | null>(null)
   const [editing, setEditing] = useState<AppointmentRow | null>(null)
   const [saving, setSaving] = useState(false)
-  const [linking, setLinking] = useState<AppointmentRow | null>(null)
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams({ clinic, date })
-      if (search.trim()) params.set("mobile", search.trim())
+      if (search.trim()) params.set("q", search.trim())
       const data = await apiGet<{ appointments?: AppointmentRow[] }>(
         `/api/booking/appointments?${params}`
       )
@@ -108,7 +106,7 @@ export default function AppointmentsPage() {
         />
         <div className="flex gap-2">
           <Input
-            placeholder="Search mobile…"
+            placeholder="Search name, mobile, address…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && load()}
@@ -149,7 +147,6 @@ export default function AppointmentsPage() {
           onMarkPaid={markPaid}
           payingId={payingId}
           onEdit={setEditing}
-          onLinkPid={setLinking}
         />
       )}
 
@@ -160,13 +157,6 @@ export default function AppointmentsPage() {
         onSave={saveEdit}
         saving={saving}
         mode="edit"
-      />
-
-      <LinkPidDialog
-        appointment={linking}
-        open={linking !== null}
-        onOpenChange={(open) => !open && setLinking(null)}
-        onLinked={load}
       />
     </div>
   )

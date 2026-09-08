@@ -62,6 +62,8 @@ const userItems = [
   },
 ]
 
+const staffItems = adminItems.filter((item) => item.url !== "/settings")
+
 type NavItemProps = (typeof adminItems)[number] & {
   onNavigate: () => void
 }
@@ -123,7 +125,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const name = session?.user?.name || "User"
   const role = session?.user?.role ? session.user.role.toUpperCase() : "user"
 
-  const navBar = role === "USER" ? userItems : adminItems
+  const navBar =
+    role === "ADMIN" ? adminItems : role === "STAFF" ? staffItems : userItems
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
