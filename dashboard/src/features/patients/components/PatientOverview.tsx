@@ -19,6 +19,10 @@ export function PatientOverview({ patient }: { patient: PatientTabInfo }) {
             <dd className="text-sm font-medium">{patient.mobile}</dd>
           </div>
           <div className="grid gap-1">
+            <dt className="text-sm text-muted-foreground">Address</dt>
+            <dd className="text-sm font-medium">{patient.address ?? "—"}</dd>
+          </div>
+          <div className="grid gap-1">
             <dt className="text-sm text-muted-foreground">Age</dt>
             <dd className="text-sm font-medium">
               {patient.ageYears != null ? `${patient.ageYears}y` : "—"}

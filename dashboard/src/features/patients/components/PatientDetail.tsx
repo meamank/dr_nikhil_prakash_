@@ -12,6 +12,7 @@ type Patient = {
   userId: string | null
   fullName: string
   mobile: string
+  address: string | null
   ageYears: number | null
   gender: string | null
   isFirstLogin: boolean | number
@@ -86,6 +87,7 @@ export default function PatientDetail() {
             pid: patient.pid,
             fullName: patient.fullName,
             mobile: patient.mobile,
+            address: patient.address,
             ageYears: patient.ageYears,
             gender: patient.gender,
           }}

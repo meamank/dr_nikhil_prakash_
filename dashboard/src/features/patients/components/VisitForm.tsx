@@ -1,19 +1,11 @@
 import { formatClinicalText } from "@repo/shared"
-import { formatClinicalInput } from "@/lib/clinical-input"
 import { useState } from "react"
 import { Combobox } from "@/components/Combobox"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
 import {
   Select,
   SelectContent,
@@ -21,47 +13,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { formatClinicalInput } from "@/lib/clinical-input"
+import { IbsAssessmentForm } from "./assessments/IbsAssessmentForm"
+import { T2dmAssessmentForm } from "./assessments/T2dmAssessmentForm"
+import {
+  emptyIbsAssessment,
+  emptyT2dmAssessment,
+  type IbsAssessment,
+  type T2dmAssessment,
+} from "./visit-form.types"
 
 const soundOptions = ["Normal", "Wheeze", "Rhonci", "Creps", "Other"] as const
-const assessmentOutcomes = [
-  "Not assessed",
-  "Suspected",
-  "Confirmed",
-  "Ruled out",
-] as const
-const t2dmDiagnosis = "TYPE 2 DIABETES MELLITUS"
-
-type T2dmAssessment = {
-  symptomsDuration: string
-  familyHistory: "" | "Yes" | "No" | "Unknown"
-  polyuria: "" | "Yes" | "No" | "Unknown"
-  polydipsia: "" | "Yes" | "No" | "Unknown"
-  randomBloodGlucose: string
-  hba1c: string
-  outcome: (typeof assessmentOutcomes)[number]
-}
-
-const emptyT2dmAssessment = (): T2dmAssessment => ({
-  symptomsDuration: "",
-  familyHistory: "",
-  polyuria: "",
-  polydipsia: "",
-  randomBloodGlucose: "",
-  hba1c: "",
-  outcome: "Not assessed",
-})
-
-function hasT2dmAnswers(assessment: T2dmAssessment): boolean {
-  return (
-    assessment.symptomsDuration !== "" ||
-    assessment.familyHistory !== "" ||
-    assessment.polyuria !== "" ||
-    assessment.polydipsia !== "" ||
-    assessment.randomBloodGlucose !== "" ||
-    assessment.hba1c !== "" ||
-    assessment.outcome !== "Not assessed"
-  )
-}
 
 const clinicalOptionFields = [
   {
@@ -104,12 +66,6 @@ const diagnosisField = {
   optionKey: "option",
 } as const
 
-const t2dmChoiceFields = [
-  { key: "familyHistory", label: "Family history of diabetes" },
-  { key: "polyuria", label: "Frequent urination (polyuria)" },
-  { key: "polydipsia", label: "Excessive thirst (polydipsia)" },
-] as const
-
 export type VisitData = {
   id: string
   label: string
@@ -122,7 +78,9 @@ export type VisitData = {
   diagnosis: string[]
   labReports: string[]
   medicinesPrescribed: string[]
+  remarks: string
   t2dmAssessment: T2dmAssessment | null
+  ibsAssessment: IbsAssessment | null
   status: "draft" | "saved"
 }
 
@@ -135,15 +93,31 @@ function getVisitValues(visit: VisitData): VisitValues {
     chestHeartSound: visit.chestHeartSound,
     otherChestHeartSound: formatClinicalText(visit.otherChestHeartSound),
     chiefComplaint: visit.chiefComplaint.map(formatClinicalText),
-    previousMedicalHistory:
-      visit.previousMedicalHistory.map(formatClinicalText),
+    previousMedicalHistory: visit.previousMedicalHistory.map(formatClinicalText),
     diagnosis: visit.diagnosis.map(formatClinicalText),
     labReports: visit.labReports.map(formatClinicalText),
     medicinesPrescribed: visit.medicinesPrescribed.map(formatClinicalText),
-    t2dmAssessment: visit.t2dmAssessment
-      ? { ...visit.t2dmAssessment }
-      : null,
+    remarks: formatClinicalText(visit.remarks),
+    t2dmAssessment: visit.t2dmAssessment ? { ...visit.t2dmAssessment } : null,
+    ibsAssessment: visit.ibsAssessment ? { ...visit.ibsAssessment } : null,
   }
+}
+
+function hasT2dmAnswers(value: T2dmAssessment): boolean {
+  return Object.values(value).some((field) => field !== "")
+}
+
+function hasIbsAnswers(value: IbsAssessment): boolean {
+  return (
+    Object.values(value).some((field) => field === true) ||
+    value.bristolStoolType !== "" ||
+    value.subtype !== "" ||
+    value.painSeverity !== 0 ||
+    value.painFrequency !== 0 ||
+    value.bloating !== 0 ||
+    value.bowelDissatisfaction !== 0 ||
+    value.lifeInterference !== 0
+  )
 }
 
 export function VisitForm({
@@ -153,18 +127,16 @@ export function VisitForm({
 }: {
   visit: VisitData
   onSave: (values: VisitValues) => void
-  // Draft only: discard the tab. Saved-edit cancel is handled
-  // internally (revert to locked view, data kept) — Option A.
   onCancel: () => void
 }) {
   const [pendingOptionCount, setPendingOptionCount] = useState(0)
   const [confirmRemoveT2dm, setConfirmRemoveT2dm] = useState(false)
+  const [confirmRemoveIbs, setConfirmRemoveIbs] = useState(false)
   const [isEditing, setIsEditing] = useState(visit.status === "draft")
   const [draft, setDraft] = useState<VisitValues>(() => getVisitValues(visit))
 
-  function handlePendingChange(pending: boolean) {
+  const handlePendingChange = (pending: boolean) =>
     setPendingOptionCount((count) => Math.max(0, count + (pending ? 1 : -1)))
-  }
 
   function updateT2dmAssessment(patch: Partial<T2dmAssessment>) {
     setDraft((prev) => ({
@@ -175,26 +147,13 @@ export function VisitForm({
     }))
   }
 
-  function updateT2dmOutcome(outcome: T2dmAssessment["outcome"]) {
+  function updateIbsAssessment(patch: Partial<IbsAssessment>) {
     setDraft((prev) => ({
       ...prev,
-      diagnosis:
-        (outcome === "Suspected" || outcome === "Confirmed") &&
-        !prev.diagnosis.includes(t2dmDiagnosis)
-          ? [...prev.diagnosis, t2dmDiagnosis]
-          : prev.diagnosis,
-      t2dmAssessment: prev.t2dmAssessment
-        ? { ...prev.t2dmAssessment, outcome }
+      ibsAssessment: prev.ibsAssessment
+        ? { ...prev.ibsAssessment, ...patch }
         : null,
     }))
-  }
-
-  function requestRemoveT2dm() {
-    if (draft.t2dmAssessment && hasT2dmAnswers(draft.t2dmAssessment)) {
-      setConfirmRemoveT2dm(true)
-      return
-    }
-    setDraft((prev) => ({ ...prev, t2dmAssessment: null }))
   }
 
   function handleSave() {
@@ -207,14 +166,8 @@ export function VisitForm({
       onCancel()
       return
     }
-    // Saved visit: revert unsaved typing, back to locked view. Data kept.
     setDraft(getVisitValues(visit))
     setIsEditing(false)
-  }
-
-  function handleEdit() {
-    setDraft(getVisitValues(visit))
-    setIsEditing(true)
   }
 
   if (!isEditing) {
@@ -235,9 +188,7 @@ export function VisitForm({
               </dd>
             </div>
             <div className="grid gap-1 sm:col-span-2">
-              <dt className="text-sm text-muted-foreground">
-                Chest/Heart Sound
-              </dt>
+              <dt className="text-sm text-muted-foreground">Chest/Heart Sound</dt>
               <dd className="text-sm font-medium break-words whitespace-pre-wrap">
                 {visit.chestHeartSound === "Other"
                   ? formatClinicalText(visit.otherChestHeartSound) || "OTHER"
@@ -259,19 +210,27 @@ export function VisitForm({
                   "NO DIAGNOSIS"}
               </dd>
             </div>
+            <div className="grid min-w-0 gap-1 sm:col-span-2">
+              <dt className="text-sm text-muted-foreground">Remarks</dt>
+              <dd className="text-sm font-medium break-words">
+                {formatClinicalText(visit.remarks) || "—"}
+              </dd>
+            </div>
             {visit.t2dmAssessment && (
               <div className="grid min-w-0 gap-1 sm:col-span-2">
-                <dt className="text-sm text-muted-foreground">
-                  T2DM assessment
-                </dt>
-                <dd className="text-sm font-medium">
-                  {visit.t2dmAssessment.outcome}
-                </dd>
+                <dt className="text-sm text-muted-foreground">T2DM assessment</dt>
+                <dd className="text-sm font-medium">Recorded</dd>
+              </div>
+            )}
+            {visit.ibsAssessment && (
+              <div className="grid min-w-0 gap-1 sm:col-span-2">
+                <dt className="text-sm text-muted-foreground">IBS assessment</dt>
+                <dd className="text-sm font-medium">Recorded</dd>
               </div>
             )}
           </dl>
           <div>
-            <Button type="button" variant="outline" onClick={handleEdit}>
+            <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
               Edit
             </Button>
           </div>
@@ -294,8 +253,8 @@ export function VisitForm({
               id={`${visit.id}-weight`}
               placeholder="70 kg"
               value={draft.weight}
-              onChange={(e) => {
-                const weight = formatClinicalInput(e.currentTarget)
+              onChange={(event) => {
+                const weight = formatClinicalInput(event.currentTarget)
                 setDraft((prev) => ({ ...prev, weight }))
               }}
             />
@@ -306,8 +265,8 @@ export function VisitForm({
               id={`${visit.id}-bp`}
               placeholder="120/80"
               value={draft.bloodPressure}
-              onChange={(e) => {
-                const value = formatClinicalInput(e.currentTarget)
+              onChange={(event) => {
+                const value = formatClinicalInput(event.currentTarget)
                 setDraft((prev) => ({
                   ...prev,
                   bloodPressure:
@@ -319,22 +278,16 @@ export function VisitForm({
               }}
             />
           </div>
-          <div className="grid gap-2 sm:col-span-1">
-            <Label htmlFor={`${visit.id}-chest-heart-sound`}>
-              Chest/Heart Sound
-            </Label>
+          <div className="grid gap-2">
+            <Label htmlFor={`${visit.id}-chest-heart-sound`}>Chest/Heart Sound</Label>
             <Select
               value={draft.chestHeartSound}
               onValueChange={(value) => {
                 const sound = soundOptions.find((option) => option === value)
-                if (sound)
-                  setDraft((prev) => ({ ...prev, chestHeartSound: sound }))
+                if (sound) setDraft((prev) => ({ ...prev, chestHeartSound: sound }))
               }}
             >
-              <SelectTrigger
-                id={`${visit.id}-chest-heart-sound`}
-                className="w-full"
-              >
+              <SelectTrigger id={`${visit.id}-chest-heart-sound`} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -347,18 +300,14 @@ export function VisitForm({
             </Select>
           </div>
           {draft.chestHeartSound === "Other" && (
-            <div className="grid gap-2 sm:col-span-1">
-              <Label htmlFor={`${visit.id}-other-sound`}>
-                Other chest/heart sound
-              </Label>
+            <div className="grid gap-2">
+              <Label htmlFor={`${visit.id}-other-sound`}>Other chest/heart sound</Label>
               <Input
                 id={`${visit.id}-other-sound`}
                 placeholder="Describe the chest/heart sound"
                 value={draft.otherChestHeartSound}
-                onChange={(e) => {
-                  const otherChestHeartSound = formatClinicalInput(
-                    e.currentTarget
-                  )
+                onChange={(event) => {
+                  const otherChestHeartSound = formatClinicalInput(event.currentTarget)
                   setDraft((prev) => ({ ...prev, otherChestHeartSound }))
                 }}
               />
@@ -366,14 +315,12 @@ export function VisitForm({
           )}
           {clinicalOptionFields.map(
             ({ key, label, endpoint, placeholder, optionsKey, optionKey }) => (
-              <div key={key} className="grid gap-2 sm:col-span-1">
+              <div key={key} className="grid gap-2">
                 <Combobox
                   id={`${visit.id}-${key}`}
                   label={label}
                   value={draft[key]}
-                  onChange={(options) =>
-                    setDraft((prev) => ({ ...prev, [key]: options }))
-                  }
+                  onChange={(options) => setDraft((prev) => ({ ...prev, [key]: options }))}
                   onPendingChange={handlePendingChange}
                   endpoint={endpoint}
                   placeholder={placeholder}
@@ -383,14 +330,12 @@ export function VisitForm({
               </div>
             )
           )}
-          <div className="grid gap-2 sm:col-span-1">
+          <div className="grid gap-2">
             <Combobox
               id={`${visit.id}-diagnosis`}
               label="Diagnosis"
               value={draft.diagnosis}
-              onChange={(diagnosis) =>
-                setDraft((prev) => ({ ...prev, diagnosis }))
-              }
+              onChange={(diagnosis) => setDraft((prev) => ({ ...prev, diagnosis }))}
               onPendingChange={handlePendingChange}
               endpoint={diagnosisField.endpoint}
               placeholder="No diagnosis"
@@ -398,166 +343,75 @@ export function VisitForm({
               optionKey={diagnosisField.optionKey}
             />
           </div>
-          <div className="grid gap-2 sm:col-span-1">
-            <Label htmlFor={`${visit.id}-assessment-form`}>
-              Add disease assessment
-            </Label>
+          <div className="grid gap-2">
+            <Label htmlFor={`${visit.id}-assessment-form`}>Add disease assessment</Label>
             <Select
               value=""
               onValueChange={(value) => {
                 if (value === "t2dm" && !draft.t2dmAssessment) {
-                  setDraft((prev) => ({
-                    ...prev,
-                    t2dmAssessment: emptyT2dmAssessment(),
-                  }))
+                  setDraft((prev) => ({ ...prev, t2dmAssessment: emptyT2dmAssessment() }))
+                }
+                if (value === "ibs" && !draft.ibsAssessment) {
+                  setDraft((prev) => ({ ...prev, ibsAssessment: emptyIbsAssessment() }))
                 }
               }}
             >
-              <SelectTrigger
-                id={`${visit.id}-assessment-form`}
-                className="w-full"
-              >
+              <SelectTrigger id={`${visit.id}-assessment-form`} className="w-full">
                 <SelectValue placeholder="Select a form" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="t2dm" disabled={!!draft.t2dmAssessment}>
                   T2DM assessment
                 </SelectItem>
+                <SelectItem value="ibs" disabled={!!draft.ibsAssessment}>
+                  IBS assessment
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`${visit.id}-remarks`}>Remarks</Label>
+            <Input
+              id={`${visit.id}-remarks`}
+              placeholder="Add a brief remark"
+              value={draft.remarks}
+              onChange={(event) => {
+                const remarks = formatClinicalInput(event.currentTarget)
+                setDraft((prev) => ({ ...prev, remarks }))
+              }}
+            />
+          </div>
           {draft.t2dmAssessment && (
-            <Card className="sm:col-span-full">
-              <CardHeader className="flex-row items-start justify-between gap-4">
-                <div className="grid gap-1">
-                  <CardTitle>T2DM assessment</CardTitle>
-                  <CardDescription>
-                    Placeholder screening questions for the disease-form flow.
-                  </CardDescription>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={requestRemoveT2dm}
-                >
-                  Remove
-                </Button>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-3">
-                <div className="grid gap-2">
-                  <Label htmlFor={`${visit.id}-t2dm-duration`}>
-                    Duration of symptoms
-                  </Label>
-                  <Input
-                    id={`${visit.id}-t2dm-duration`}
-                    placeholder="For example, 3 months"
-                    value={draft.t2dmAssessment.symptomsDuration}
-                    onChange={(event) => {
-                      const symptomsDuration = formatClinicalInput(
-                        event.currentTarget
-                      )
-                      updateT2dmAssessment({ symptomsDuration })
-                    }}
-                  />
-                </div>
-                {t2dmChoiceFields.map(({ key, label }) => (
-                  <div key={key} className="grid gap-2">
-                    <Label htmlFor={`${visit.id}-t2dm-${key}`}>{label}</Label>
-                    <Select
-                      value={draft.t2dmAssessment?.[key] ?? ""}
-                      onValueChange={(value) => {
-                        if (
-                          value === "Yes" ||
-                          value === "No" ||
-                          value === "Unknown"
-                        ) {
-                          updateT2dmAssessment({ [key]: value })
-                        }
-                      }}
-                    >
-                      <SelectTrigger
-                        id={`${visit.id}-t2dm-${key}`}
-                        className="w-full"
-                      >
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(["Yes", "No", "Unknown"] as const).map((option) => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
-                <div className="grid gap-2">
-                  <Label htmlFor={`${visit.id}-t2dm-random-glucose`}>
-                    Random blood glucose
-                  </Label>
-                  <Input
-                    id={`${visit.id}-t2dm-random-glucose`}
-                    placeholder="For example, 210 mg/dL"
-                    value={draft.t2dmAssessment.randomBloodGlucose}
-                    onChange={(event) => {
-                      const randomBloodGlucose = formatClinicalInput(
-                        event.currentTarget
-                      )
-                      updateT2dmAssessment({ randomBloodGlucose })
-                    }}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`${visit.id}-t2dm-hba1c`}>HbA1c</Label>
-                  <Input
-                    id={`${visit.id}-t2dm-hba1c`}
-                    placeholder="For example, 7.2%"
-                    value={draft.t2dmAssessment.hba1c}
-                    onChange={(event) => {
-                      const hba1c = formatClinicalInput(event.currentTarget)
-                      updateT2dmAssessment({ hba1c })
-                    }}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`${visit.id}-t2dm-outcome`}>
-                    Assessment outcome
-                  </Label>
-                  <Select
-                    value={draft.t2dmAssessment.outcome}
-                    onValueChange={(value) => {
-                      const outcome = assessmentOutcomes.find(
-                        (option) => option === value
-                      )
-                      if (outcome) updateT2dmOutcome(outcome)
-                    }}
-                  >
-                    <SelectTrigger
-                      id={`${visit.id}-t2dm-outcome`}
-                      className="w-full"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {assessmentOutcomes.map((outcome) => (
-                        <SelectItem key={outcome} value={outcome}>
-                          {outcome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
+            <T2dmAssessmentForm
+              id={`${visit.id}-t2dm`}
+              value={draft.t2dmAssessment}
+              onChange={updateT2dmAssessment}
+              onRemove={() => {
+                if (draft.t2dmAssessment && hasT2dmAnswers(draft.t2dmAssessment)) {
+                  setConfirmRemoveT2dm(true)
+                } else {
+                  setDraft((prev) => ({ ...prev, t2dmAssessment: null }))
+                }
+              }}
+            />
+          )}
+          {draft.ibsAssessment && (
+            <IbsAssessmentForm
+              id={`${visit.id}-ibs`}
+              value={draft.ibsAssessment}
+              onChange={updateIbsAssessment}
+              onRemove={() => {
+                if (draft.ibsAssessment && hasIbsAnswers(draft.ibsAssessment)) {
+                  setConfirmRemoveIbs(true)
+                } else {
+                  setDraft((prev) => ({ ...prev, ibsAssessment: null }))
+                }
+              }}
+            />
           )}
         </div>
         <div className="mt-4 flex gap-2">
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={pendingOptionCount > 0}
-          >
+          <Button type="button" onClick={handleSave} disabled={pendingOptionCount > 0}>
             {visit.status === "draft" ? "Save visit" : "Save changes"}
           </Button>
           <Button
@@ -579,6 +433,17 @@ export function VisitForm({
         onConfirm={() => {
           setDraft((prev) => ({ ...prev, t2dmAssessment: null }))
           setConfirmRemoveT2dm(false)
+        }}
+      />
+      <ConfirmDialog
+        open={confirmRemoveIbs}
+        onOpenChange={setConfirmRemoveIbs}
+        title="Remove IBS assessment?"
+        description="The answers entered in this assessment will be discarded."
+        confirmLabel="Remove assessment"
+        onConfirm={() => {
+          setDraft((prev) => ({ ...prev, ibsAssessment: null }))
+          setConfirmRemoveIbs(false)
         }}
       />
     </Card>

@@ -21,6 +21,7 @@ export type PatientTabInfo = {
   pid: string
   fullName: string
   mobile: string
+  address: string | null
   ageYears: number | null
   gender: string | null
 }
@@ -71,7 +72,9 @@ export function VisitTabs({
         diagnosis: [],
         labReports: [],
         medicinesPrescribed: [],
+        remarks: "",
         t2dmAssessment: null,
+        ibsAssessment: null,
         status: "draft",
       },
     ])

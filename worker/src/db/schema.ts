@@ -121,6 +121,7 @@ export const patients = sqliteTable("patients", {
   userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   fullName: text("full_name").notNull(),
   mobile: text("mobile").notNull(),
+  address: text("address"),
   ageYears: integer("age_years"),
   gender: text("gender", { enum: ["male", "female", "other"] }),
   // Set when a staff member created this record at the front desk
