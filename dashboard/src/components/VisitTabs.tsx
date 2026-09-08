@@ -26,12 +26,15 @@ export type PatientTabInfo = {
   gender: string | null
 }
 
-function fmtTodayIST(): string {
+function todayISTDate(): string {
   const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
-  const dd = String(ist.getUTCDate()).padStart(2, "0")
-  const mm = String(ist.getUTCMonth() + 1).padStart(2, "0")
-  const yy = String(ist.getUTCFullYear()).slice(2)
-  return `${dd}-${mm}-${yy}`
+  return ist.toISOString().slice(0, 10)
+}
+
+function formatVisitLabel(visitDate: string): string {
+  const [year, month, day] = visitDate.split("-")
+  if (!year || !month || !day) return visitDate
+  return `${day}-${month}-${year.slice(-2)}`
 }
 
 export function VisitTabs({
@@ -49,20 +52,16 @@ export function VisitTabs({
   const [visitsState, setVisitsState] = useState<VisitData[]>([])
   const [active, setActive] = useState("overview")
 
-  const todayLabel = fmtTodayIST()
-  const todayOpen = visitsState.some(
-    (d) => d.label === todayLabel || d.label.startsWith(`${todayLabel} (`)
-  )
-
   function handleAddVisit() {
-    if (todayOpen) return
     onAddVisit?.()
+    const today = todayISTDate()
     const id = `new-visit-${Date.now()}`
     setVisitsState((prev) => [
       ...prev,
       {
         id,
-        label: todayLabel,
+        label: formatVisitLabel(today),
+        visitDate: today,
         bloodPressure: "",
         weight: "",
         chestHeartSound: "Normal",
@@ -84,7 +83,14 @@ export function VisitTabs({
   function handleSaveVisit(id: string, values: VisitValues) {
     setVisitsState((prev) =>
       prev.map((d) =>
-        d.id === id ? { ...d, ...values, status: "saved" as const } : d
+        d.id === id
+          ? {
+              ...d,
+              ...values,
+              label: formatVisitLabel(values.visitDate),
+              status: "saved" as const,
+            }
+          : d
       )
     )
   }
@@ -116,7 +122,6 @@ export function VisitTabs({
         <Button
           size="sm"
           onClick={handleAddVisit}
-          disabled={todayOpen}
           className="ml-auto"
         >
           + Add Visit

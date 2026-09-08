@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Link } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -33,7 +34,6 @@ export default function AppointmentsPage() {
   const [editing, setEditing] = useState<AppointmentRow | null>(null)
   const [saving, setSaving] = useState(false)
   const [linking, setLinking] = useState<AppointmentRow | null>(null)
-  const [adding, setAdding] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -74,22 +74,9 @@ export default function AppointmentsPage() {
     setSaving(true)
     setError(null)
     try {
-      if (id === null) {
-        // Create mode — staff booking (same shape as web booking API)
-        await apiPost("/api/booking/appointments", {
-          patientName: patch.patientName,
-          address: patch.patientAddress,
-          mobile: patch.patientMobile,
-          patientAgeYears: patch.patientAgeYears,
-          patientGender: patch.patientGender,
-          clinic: patch.clinic,
-          date: patch.date,
-        })
-        setAdding(false)
-      } else {
-        await apiPatch(`/api/booking/appointments/${id}`, patch)
-        setEditing(null)
-      }
+      if (id === null) return
+      await apiPatch(`/api/booking/appointments/${id}`, patch)
+      setEditing(null)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed")
@@ -134,8 +121,8 @@ export default function AppointmentsPage() {
         <Button variant="ghost" onClick={load} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
         </Button>
-        <Button className="ml-auto" onClick={() => setAdding(true)}>
-          + Add Appointment
+        <Button className="ml-auto" asChild>
+          <Link to="/appointments/add">+ Add Appointment</Link>
         </Button>
       </div>
 
@@ -173,15 +160,6 @@ export default function AppointmentsPage() {
         onSave={saveEdit}
         saving={saving}
         mode="edit"
-      />
-
-      <EditAppointmentSheet
-        appointment={null}
-        open={adding}
-        onOpenChange={(open) => !open && setAdding(false)}
-        onSave={saveEdit}
-        saving={saving}
-        mode="create"
       />
 
       <LinkPidDialog

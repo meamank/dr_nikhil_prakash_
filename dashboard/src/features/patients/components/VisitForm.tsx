@@ -13,8 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select"
 import { formatClinicalInput } from "@/lib/clinical-input"
 import { IbsAssessmentForm } from "./assessments/IbsAssessmentForm"
+import { LabReportsInput, type LabReport } from "./LabReportsInput"
+import { MedicinesInput, type Medicine } from "./MedicinesInput"
 import { T2dmAssessmentForm } from "./assessments/T2dmAssessmentForm"
 import {
   emptyIbsAssessment,
@@ -42,22 +48,6 @@ const clinicalOptionFields = [
     optionsKey: "options",
     optionKey: "option",
   },
-  {
-    key: "labReports",
-    label: "Lab reports",
-    endpoint: "/api/clinical-options/lab-reports",
-    placeholder: "Type or select lab reports",
-    optionsKey: "options",
-    optionKey: "option",
-  },
-  {
-    key: "medicinesPrescribed",
-    label: "Medicines prescribed",
-    endpoint: "/api/clinical-options/medicines-prescribed",
-    placeholder: "Type or select prescribed medicines",
-    optionsKey: "options",
-    optionKey: "option",
-  },
 ] as const
 
 const diagnosisField = {
@@ -69,6 +59,7 @@ const diagnosisField = {
 export type VisitData = {
   id: string
   label: string
+  visitDate: string
   bloodPressure: string
   weight: string
   chestHeartSound: (typeof soundOptions)[number]
@@ -76,8 +67,8 @@ export type VisitData = {
   chiefComplaint: string[]
   previousMedicalHistory: string[]
   diagnosis: string[]
-  labReports: string[]
-  medicinesPrescribed: string[]
+  labReports: LabReport[]
+  medicinesPrescribed: Medicine[]
   remarks: string
   t2dmAssessment: T2dmAssessment | null
   ibsAssessment: IbsAssessment | null
@@ -88,6 +79,7 @@ export type VisitValues = Omit<VisitData, "id" | "label" | "status">
 
 function getVisitValues(visit: VisitData): VisitValues {
   return {
+    visitDate: visit.visitDate,
     bloodPressure: formatClinicalText(visit.bloodPressure),
     weight: formatClinicalText(visit.weight),
     chestHeartSound: visit.chestHeartSound,
@@ -95,8 +87,17 @@ function getVisitValues(visit: VisitData): VisitValues {
     chiefComplaint: visit.chiefComplaint.map(formatClinicalText),
     previousMedicalHistory: visit.previousMedicalHistory.map(formatClinicalText),
     diagnosis: visit.diagnosis.map(formatClinicalText),
-    labReports: visit.labReports.map(formatClinicalText),
-    medicinesPrescribed: visit.medicinesPrescribed.map(formatClinicalText),
+    labReports: visit.labReports.map((report) => ({
+      test: formatClinicalText(report.test),
+      result: formatClinicalText(report.result),
+      reportDate: report.reportDate,
+    })),
+    medicinesPrescribed: visit.medicinesPrescribed.map((medicine) => ({
+      name: formatClinicalText(medicine.name),
+      frequency: medicine.frequency,
+      duration: formatClinicalText(medicine.duration),
+      notes: formatClinicalText(medicine.notes),
+    })),
     remarks: formatClinicalText(visit.remarks),
     t2dmAssessment: visit.t2dmAssessment ? { ...visit.t2dmAssessment } : null,
     ibsAssessment: visit.ibsAssessment ? { ...visit.ibsAssessment } : null,
@@ -176,6 +177,10 @@ export function VisitForm({
         <CardContent className="grid gap-4">
           <dl className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1">
+              <dt className="text-sm text-muted-foreground">Visit date</dt>
+              <dd className="text-sm font-medium">{visit.label}</dd>
+            </div>
+            <div className="grid gap-1">
               <dt className="text-sm text-muted-foreground">Blood pressure</dt>
               <dd className="text-sm font-medium">
                 {formatClinicalText(visit.bloodPressure) || "—"}
@@ -203,6 +208,28 @@ export function VisitForm({
                 </dd>
               </div>
             ))}
+            <div className="grid min-w-0 gap-1 sm:col-span-2">
+              <dt className="text-sm text-muted-foreground">Lab reports</dt>
+              <dd className="text-sm font-medium break-words">
+                {visit.labReports
+                  .map(
+                    (report) =>
+                      `${formatClinicalText(report.test)} · ${formatClinicalText(report.result)} · ${report.reportDate}`
+                  )
+                  .join(", ") || "—"}
+              </dd>
+            </div>
+            <div className="grid min-w-0 gap-1 sm:col-span-2">
+              <dt className="text-sm text-muted-foreground">Medicines prescribed</dt>
+              <dd className="text-sm font-medium break-words">
+                {visit.medicinesPrescribed
+                  .map(
+                    (medicine) =>
+                      `${formatClinicalText(medicine.name)} · ${medicine.frequency} · ${formatClinicalText(medicine.duration)}${medicine.notes ? ` · ${formatClinicalText(medicine.notes)}` : ""}`
+                  )
+                  .join(", ") || "—"}
+              </dd>
+            </div>
             <div className="grid min-w-0 gap-1 sm:col-span-2">
               <dt className="text-sm text-muted-foreground">Diagnosis</dt>
               <dd className="text-sm font-medium break-words">
@@ -245,7 +272,15 @@ export function VisitForm({
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="grid gap-2">
             <Label htmlFor={`${visit.id}-date`}>Visit date</Label>
-            <Input id={`${visit.id}-date`} value={visit.label} disabled />
+            <Input
+              id={`${visit.id}-date`}
+              type="date"
+              value={draft.visitDate}
+              onChange={(event) =>
+                setDraft((prev) => ({ ...prev, visitDate: event.target.value }))
+              }
+              required
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${visit.id}-weight`}>Weight</Label>
@@ -280,24 +315,23 @@ export function VisitForm({
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${visit.id}-chest-heart-sound`}>Chest/Heart Sound</Label>
-            <Select
+            <NativeSelect
+              id={`${visit.id}-chest-heart-sound`}
+              className="w-full"
               value={draft.chestHeartSound}
-              onValueChange={(value) => {
-                const sound = soundOptions.find((option) => option === value)
+              onChange={(event) => {
+                const sound = soundOptions.find(
+                  (option) => option === event.target.value
+                )
                 if (sound) setDraft((prev) => ({ ...prev, chestHeartSound: sound }))
               }}
             >
-              <SelectTrigger id={`${visit.id}-chest-heart-sound`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {soundOptions.map((sound) => (
-                  <SelectItem key={sound} value={sound}>
-                    {formatClinicalText(sound)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {soundOptions.map((sound) => (
+                <NativeSelectOption key={sound} value={sound}>
+                  {formatClinicalText(sound)}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
           </div>
           {draft.chestHeartSound === "Other" && (
             <div className="grid gap-2">
@@ -330,6 +364,20 @@ export function VisitForm({
               </div>
             )
           )}
+          <LabReportsInput
+            id={`${visit.id}-lab-reports`}
+            value={draft.labReports}
+            onChange={(labReports) => setDraft((prev) => ({ ...prev, labReports }))}
+            onPendingChange={handlePendingChange}
+          />
+          <MedicinesInput
+            id={`${visit.id}-medicines`}
+            value={draft.medicinesPrescribed}
+            onChange={(medicinesPrescribed) =>
+              setDraft((prev) => ({ ...prev, medicinesPrescribed }))
+            }
+            onPendingChange={handlePendingChange}
+          />
           <div className="grid gap-2">
             <Combobox
               id={`${visit.id}-diagnosis`}

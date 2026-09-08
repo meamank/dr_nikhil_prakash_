@@ -19,6 +19,8 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAppointmentsRouteImport } from './routes/_authenticated/appointments'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated/messages'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedAppointmentsIndexRouteImport } from './routes/_authenticated/appointments/index'
+import { Route as AuthenticatedAppointmentsAddRouteImport } from './routes/_authenticated/appointments/add'
 import { Route as AuthenticatedPatientsIndexRouteImport } from './routes/_authenticated/patients/index'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients/$patientId'
 
@@ -71,6 +73,18 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppointmentsIndexRoute =
+  AuthenticatedAppointmentsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAppointmentsRoute,
+  } as any)
+const AuthenticatedAppointmentsAddRoute =
+  AuthenticatedAppointmentsAddRouteImport.update({
+    id: '/add',
+    path: '/add',
+    getParentRoute: () => AuthenticatedAppointmentsRoute,
+  } as any)
 const AuthenticatedPatientsIndexRoute =
   AuthenticatedPatientsIndexRouteImport.update({
     id: '/patients/',
@@ -90,10 +104,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
-  '/appointments': typeof AuthenticatedAppointmentsRoute
+  '/appointments': typeof AuthenticatedAppointmentsRouteWithChildren
   '/messages': typeof AuthenticatedMessagesRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/appointments/add': typeof AuthenticatedAppointmentsAddRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/appointments/': typeof AuthenticatedAppointmentsIndexRoute
   '/patients/': typeof AuthenticatedPatientsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -102,10 +118,11 @@ export interface FileRoutesByTo {
   '/login': typeof AuthLoginRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/signup': typeof AuthSignupRoute
-  '/appointments': typeof AuthenticatedAppointmentsRoute
   '/messages': typeof AuthenticatedMessagesRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/appointments/add': typeof AuthenticatedAppointmentsAddRoute
   '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/appointments': typeof AuthenticatedAppointmentsIndexRoute
   '/patients': typeof AuthenticatedPatientsIndexRoute
 }
 export interface FileRoutesById {
@@ -116,11 +133,13 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/signup': typeof AuthSignupRoute
-  '/_authenticated/appointments': typeof AuthenticatedAppointmentsRoute
+  '/_authenticated/appointments': typeof AuthenticatedAppointmentsRouteWithChildren
   '/_authenticated/messages': typeof AuthenticatedMessagesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/appointments/add': typeof AuthenticatedAppointmentsAddRoute
   '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/_authenticated/appointments/': typeof AuthenticatedAppointmentsIndexRoute
   '/_authenticated/patients/': typeof AuthenticatedPatientsIndexRoute
 }
 export interface FileRouteTypes {
@@ -134,7 +153,9 @@ export interface FileRouteTypes {
     | '/appointments'
     | '/messages'
     | '/settings'
+    | '/appointments/add'
     | '/patients/$patientId'
+    | '/appointments/'
     | '/patients/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -143,10 +164,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
-    | '/appointments'
     | '/messages'
     | '/settings'
+    | '/appointments/add'
     | '/patients/$patientId'
+    | '/appointments'
     | '/patients'
   id:
     | '__root__'
@@ -160,7 +182,9 @@ export interface FileRouteTypes {
     | '/_authenticated/messages'
     | '/_authenticated/settings'
     | '/_authenticated/'
+    | '/_authenticated/appointments/add'
     | '/_authenticated/patients/$patientId'
+    | '/_authenticated/appointments/'
     | '/_authenticated/patients/'
   fileRoutesById: FileRoutesById
 }
@@ -241,6 +265,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/appointments/': {
+      id: '/_authenticated/appointments/'
+      path: '/'
+      fullPath: '/appointments/'
+      preLoaderRoute: typeof AuthenticatedAppointmentsIndexRouteImport
+      parentRoute: typeof AuthenticatedAppointmentsRoute
+    }
+    '/_authenticated/appointments/add': {
+      id: '/_authenticated/appointments/add'
+      path: '/add'
+      fullPath: '/appointments/add'
+      preLoaderRoute: typeof AuthenticatedAppointmentsAddRouteImport
+      parentRoute: typeof AuthenticatedAppointmentsRoute
+    }
     '/_authenticated/patients/': {
       id: '/_authenticated/patients/'
       path: '/patients'
@@ -276,8 +314,24 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
+interface AuthenticatedAppointmentsRouteChildren {
+  AuthenticatedAppointmentsAddRoute: typeof AuthenticatedAppointmentsAddRoute
+  AuthenticatedAppointmentsIndexRoute: typeof AuthenticatedAppointmentsIndexRoute
+}
+
+const AuthenticatedAppointmentsRouteChildren: AuthenticatedAppointmentsRouteChildren =
+  {
+    AuthenticatedAppointmentsAddRoute: AuthenticatedAppointmentsAddRoute,
+    AuthenticatedAppointmentsIndexRoute: AuthenticatedAppointmentsIndexRoute,
+  }
+
+const AuthenticatedAppointmentsRouteWithChildren =
+  AuthenticatedAppointmentsRoute._addFileChildren(
+    AuthenticatedAppointmentsRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAppointmentsRoute: typeof AuthenticatedAppointmentsRoute
+  AuthenticatedAppointmentsRoute: typeof AuthenticatedAppointmentsRouteWithChildren
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -286,7 +340,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAppointmentsRoute: AuthenticatedAppointmentsRoute,
+  AuthenticatedAppointmentsRoute: AuthenticatedAppointmentsRouteWithChildren,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
