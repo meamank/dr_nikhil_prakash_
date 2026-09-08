@@ -305,6 +305,9 @@ export function DataTable({
       pagination,
     },
     getRowId: (row) => row.id,
+    // Refreshing after Edit/Mark Paid replaces the data array. Keep reception on
+    // the page they were working on instead of resetting to page 1.
+    autoResetPageIndex: false,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
