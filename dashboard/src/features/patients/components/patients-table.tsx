@@ -67,7 +67,7 @@ export const patientSchema = z.object({
   userId: z.string().nullable(),
   fullName: z.string(),
   mobile: z.string(),
-  dob: z.string().nullable(),
+  ageYears: z.number().nullable(),
   gender: z.string().nullable(),
   isFirstLogin: z.union([z.boolean(), z.number()]),
   createdAt: z.union([z.string(), z.number()]),
@@ -153,10 +153,12 @@ export function PatientsTable({
             <span className="capitalize">{row.original.gender ?? "—"}</span>
           ),
         }),
-        columnHelper.accessor("dob", {
-          header: "DOB",
+        columnHelper.accessor("ageYears", {
+          header: "Age",
           cell: ({ row }) => (
-            <span className="tabular-nums">{row.original.dob ?? "—"}</span>
+            <span className="tabular-nums">
+              {row.original.ageYears != null ? `${row.original.ageYears}y` : "—"}
+            </span>
           ),
         }),
         columnHelper.display({

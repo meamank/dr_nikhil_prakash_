@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { apiDelete, apiGet } from "@/lib/api"
+import { apiDelete, apiGet, apiPost } from "@/lib/api"
 import { PatientsTable, type PatientRow } from "./patients-table"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
+import { AddPatientSheet, type NewPatient } from "./AddPatientSheet"
 
 export default function PatientsListPage() {
   const [q, setQ] = useState("")
@@ -15,6 +16,8 @@ export default function PatientsListPage() {
   const [error, setError] = useState<string | null>(null)
   const [deletingPid, setDeletingPid] = useState<string | null>(null)
   const [pendingPid, setPendingPid] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [savingPatient, setSavingPatient] = useState(false)
 
   async function load(query = q) {
     setLoading(true)
@@ -61,6 +64,26 @@ export default function PatientsListPage() {
     }
   }
 
+  async function createPatient(patient: NewPatient) {
+    setSavingPatient(true)
+    setError(null)
+    try {
+      const data = await apiPost<{ patient?: PatientRow }>(
+        "/api/patients",
+        patient
+      )
+      toast.success(`Patient ${data.patient?.pid ?? ""} added`)
+      setAdding(false)
+      await load("")
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to add patient"
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setSavingPatient(false)
+    }
+  }
+
   const pendingPatient = rows.find((r) => r.pid === pendingPid)
 
   return (
@@ -81,11 +104,14 @@ export default function PatientsListPage() {
         <Button variant="ghost" onClick={() => load()} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
         </Button>
-        {total > 0 && (
-          <p className="ml-auto text-sm text-muted-foreground">
-            {total} patient{total === 1 ? "" : "s"}
-          </p>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {total > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {total} patient{total === 1 ? "" : "s"}
+            </p>
+          )}
+          <Button onClick={() => setAdding(true)}>+ Add patient</Button>
+        </div>
       </div>
 
       {error && (
@@ -100,7 +126,7 @@ export default function PatientsListPage() {
       {rows.length === 0 && !loading ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No patients yet. PIDs are issued when staff marks a booking Paid.
+            No patients yet. Add an existing patient or issue a PID when a booking is marked Paid.
           </CardContent>
         </Card>
       ) : (
@@ -125,6 +151,12 @@ export default function PatientsListPage() {
           />
         </>
       )}
+      <AddPatientSheet
+        open={adding}
+        onOpenChange={setAdding}
+        onSave={createPatient}
+        saving={savingPatient}
+      />
     </div>
   )
 }

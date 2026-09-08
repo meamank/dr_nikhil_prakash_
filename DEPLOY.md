@@ -103,10 +103,14 @@ bunx wrangler secret put BETTER_AUTH_SECRET   # paste the generated value
    | Project name | `drnikhilprakash` |
    | Production branch | `main` |
    | Framework preset | `Astro` |
-   | Root directory | `web` |
-   | Build command | `bun install && bun run build` |
-   | Build output directory | `dist` |
+   | Root directory | `/` (repo root — monorepo, `bun.lock` lives here) |
+   | Build command | `bun install && bun --filter=drnikhilprakash run build` |
+   | Build output directory | `web/dist` |
    | Environment variable | `PUBLIC_PORTAL_URL=https://clinic-worker.<subdomain>.workers.dev` |
+
+   > **Why root `/` + `--filter`:** `npm install` at root fails on
+   > `workspace:*`. Building from the repo root with `bun` lets Cloudflare
+   > resolve the `bun` workspaces correctly; `web/dist` is the Astro output.
 
    Set `PUBLIC_PORTAL_URL` under **Settings → Environment variables** →
    **Production** (and **Preview** if you want previews to point at the preview
@@ -171,4 +175,7 @@ cd worker && bun run dev     # http://localhost:8787 (API + dashboard)
 2. **Dashboard must be built before the Worker deploy** — the build command in step 2 handles this; don't run `wrangler deploy` alone without building.
 3. **Secrets** — only `BETTER_AUTH_SECRET` is secret (via `wrangler secret put`). `.dev.vars` and `.env.production` are gitignored / non-sensitive.
 4. **Pages project names are globally unique** — if `drnikhilprakash` is taken, pick e.g. `drnikhil-web` and update the project name in step 3.
-5. **Monorepo root** — both Cloudflare projects point at the same GitHub repo; they are distinguished by **Root directory** (`web` for Pages, `/` for Workers) and their respective build commands.
+5. **Monorepo root** — both Cloudflare projects build from repo root `/`
+   (so `bun` sees `bun.lock` + workspaces); they differ only by build command
+   (`--filter=dashboard` + `wrangler deploy` for Workers,
+   `--filter=drnikhilprakash` for Pages with output `web/dist`).

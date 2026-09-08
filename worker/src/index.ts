@@ -7,6 +7,8 @@ import * as schema from "./db/schema"
 import { createAuth, getAllowedOrigins, type Env } from "./auth"
 import booking from "./routes/booking"
 import patients from "./routes/patients"
+import chiefComplaints from "./routes/chief-complaints"
+import clinicalOptions from "./routes/clinical-options"
 
 type Variables = {
   patchedRequest: Request
@@ -91,5 +93,7 @@ app.get("/api/health", (c) => c.json({ ok: true }))
 
 app.route("/api/booking", booking)
 app.route("/api/patients", patients)
+app.route("/api/chief-complaints", chiefComplaints)
+app.route("/api/clinical-options", clinicalOptions)
 
 export default app

@@ -4,8 +4,8 @@ import { createDb } from "../db"
 import * as schema from "../db/schema"
 import type { Env } from "../auth"
 
-// Staff patient directory. Every row here HAS a PID (patients are only
-// created at mark-paid). Auth: TODO staff session — open for now like booking.
+// Staff patient directory. Every row here has a PID. Auth: TODO staff session
+// — open for now like booking.
 
 const patients = new Hono<{ Bindings: Env }>()
 
@@ -52,6 +52,78 @@ patients.get("/", async (c) => {
   return c.json({ patients: rows, total: total[0]?.count ?? rows.length })
 })
 
+// POST /api/patients — manually register a legacy patient and issue a PID.
+patients.post("/", async (c) => {
+  const body = await c.req
+    .json<{
+      fullName?: string
+      mobile?: string
+      address?: string
+      ageYears?: number
+      gender?: "male" | "female" | "other"
+    }>()
+    .catch(() => null)
+  if (!body) return bad(c, "Invalid body")
+
+  const fullName = body.fullName?.trim() ?? ""
+  if (fullName.length < 2) return bad(c, "Enter the patient's full name")
+
+  const digits = (body.mobile ?? "").replace(/\D/g, "")
+  const mobile =
+    digits.length === 12 && digits.startsWith("91")
+      ? digits.slice(2)
+      : digits.length === 11 && digits.startsWith("0")
+        ? digits.slice(1)
+        : digits
+  if (!/^[6-9]\d{9}$/.test(mobile)) {
+    return bad(c, "Enter a valid 10-digit mobile number")
+  }
+
+  const ageYears = Math.trunc(body.ageYears ?? NaN)
+  if (!Number.isFinite(ageYears) || ageYears < 0 || ageYears > 130) {
+    return bad(c, "Enter a valid age")
+  }
+  if (!body.gender || !["male", "female", "other"].includes(body.gender)) {
+    return bad(c, "Select a gender")
+  }
+
+  const db = createDb(c.env.DB)
+  const counter = await db
+    .select()
+    .from(schema.pidCounter)
+    .where(eq(schema.pidCounter.id, 1))
+    .limit(1)
+  const next = (counter[0]?.value ?? 0) + 1
+  const pid = `PID${String(next).padStart(6, "0")}`
+  const counterWrite = counter[0]
+    ? db
+        .update(schema.pidCounter)
+        .set({ value: next })
+        .where(eq(schema.pidCounter.id, 1))
+    : db.insert(schema.pidCounter).values({ id: 1, value: next })
+
+  await db.batch([
+    counterWrite,
+    db.insert(schema.patients).values({
+      pid,
+      userId: null,
+      fullName,
+      mobile,
+      address: body.address?.trim() || null,
+      ageYears,
+      gender: body.gender,
+      isFirstLogin: true,
+    }),
+  ])
+
+  const [patient] = await db
+    .select()
+    .from(schema.patients)
+    .where(eq(schema.patients.pid, pid))
+    .limit(1)
+  return c.json({ patient }, 201)
+})
+
 // GET /api/patients/:pid — single patient + their appointments (newest first).
 patients.get("/:pid", async (c) => {
   const pid = c.req.param("pid").trim().toUpperCase()
@@ -82,6 +154,7 @@ patients.patch("/:pid", async (c) => {
     .json<{
       fullName?: string
       mobile?: string
+      address?: string | null
       ageYears?: number | null
       gender?: "male" | "female" | "other" | null
     }>()
@@ -106,6 +179,9 @@ patients.patch("/:pid", async (c) => {
       return bad(c, "Enter a valid 10-digit mobile number")
     }
     patch.mobile = mobile
+  }
+  if (body.address !== undefined) {
+    patch.address = body.address?.trim() || null
   }
   if (body.ageYears !== undefined) {
     if (body.ageYears === null) {

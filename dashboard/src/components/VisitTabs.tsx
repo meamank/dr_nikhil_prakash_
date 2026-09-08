@@ -1,13 +1,12 @@
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { PatientOverview } from "@/features/patients/components/PatientOverview"
+import {
+  VisitForm,
+  type VisitData,
+  type VisitValues,
+} from "@/features/patients/components/VisitForm"
 
 export type VisitTabItem = {
   id: string
@@ -22,116 +21,117 @@ export type PatientTabInfo = {
   pid: string
   fullName: string
   mobile: string
+  address: string | null
   ageYears: number | null
   gender: string | null
 }
 
-function fmtTabDate(v: string | number): string {
-  const d = new Date(typeof v === "number" && v < 1e12 ? v * 1000 : v)
-  if (Number.isNaN(d.getTime())) return "—"
-  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000)
+function fmtTodayIST(): string {
+  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
   const dd = String(ist.getUTCDate()).padStart(2, "0")
   const mm = String(ist.getUTCMonth() + 1).padStart(2, "0")
   const yy = String(ist.getUTCFullYear()).slice(2)
   return `${dd}-${mm}-${yy}`
 }
 
-function fmtFullDate(v: string | number): string {
-  const d = new Date(typeof v === "number" && v < 1e12 ? v * 1000 : v)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    dateStyle: "medium",
-    timeStyle: "short",
-  })
-}
-
 export function VisitTabs({
   patient,
-  visits,
   onAddVisit,
 }: {
   patient: PatientTabInfo
-  visits: VisitTabItem[]
+  // Kept optional for backwards-compat: backend appointments are NOT
+  // auto-rendered as tabs — the profile starts with Overview only.
+  visits?: VisitTabItem[]
   onAddVisit?: () => void
 }) {
+  // Local-only visits (no API yet). Lost on refresh — backend wiring
+  // comes later when all form fields are added.
+  const [visitsState, setVisitsState] = useState<VisitData[]>([])
+  const [active, setActive] = useState("overview")
+
+  const todayLabel = fmtTodayIST()
+  const todayOpen = visitsState.some(
+    (d) => d.label === todayLabel || d.label.startsWith(`${todayLabel} (`)
+  )
+
+  function handleAddVisit() {
+    if (todayOpen) return
+    onAddVisit?.()
+    const id = `new-visit-${Date.now()}`
+    setVisitsState((prev) => [
+      ...prev,
+      {
+        id,
+        label: todayLabel,
+        bloodPressure: "",
+        weight: "",
+        chestHeartSound: "Normal",
+        otherChestHeartSound: "",
+        chiefComplaint: [],
+        previousMedicalHistory: [],
+        diagnosis: [],
+        labReports: [],
+        medicinesPrescribed: [],
+        remarks: "",
+        t2dmAssessment: null,
+        ibsAssessment: null,
+        status: "draft",
+      },
+    ])
+    setActive(id)
+  }
+
+  function handleSaveVisit(id: string, values: VisitValues) {
+    setVisitsState((prev) =>
+      prev.map((d) =>
+        d.id === id ? { ...d, ...values, status: "saved" as const } : d
+      )
+    )
+  }
+
+  // Draft only: discard the tab (accidental-click escape).
+  // Saved visits never reach here — their Cancel reverts to the
+  // locked view inside VisitForm (Option A), data is kept.
+  function handleCancelVisit(id: string) {
+    const remaining = visitsState.filter((d) => d.id !== id)
+    setVisitsState(remaining)
+    if (active === id) {
+      setActive(
+        remaining.length ? remaining[remaining.length - 1].id : "overview"
+      )
+    }
+  }
+
   return (
-    <Tabs defaultValue="overview" className="w-full">
-      <div className="flex flex-wrap items-center gap-2">
+    <Tabs value={active} onValueChange={setActive} className="w-full">
+      <div className="flex items-center gap-2">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          {visits.map((v) => (
-            <TabsTrigger key={v.id} value={v.id}>
-              {fmtTabDate(v.scheduledAt)}
+          {visitsState.map((d) => (
+            <TabsTrigger key={d.id} value={d.id}>
+              {d.label}
             </TabsTrigger>
           ))}
         </TabsList>
-        {onAddVisit && (
-          <Button size="sm" onClick={onAddVisit} className="ml-auto">
-            + Add visit
-          </Button>
-        )}
+        <Button
+          size="sm"
+          onClick={handleAddVisit}
+          disabled={todayOpen}
+          className="ml-auto"
+        >
+          + Add Visit
+        </Button>
       </div>
       <TabsContent value="overview">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {patient.fullName}{" "}
-              <span className="font-mono text-sm text-muted-foreground">
-                {patient.pid}
-              </span>
-            </CardTitle>
-            <CardDescription>
-              {patient.ageYears != null ? `${patient.ageYears}y` : "—"}
-              {patient.gender ? ` · ${patient.gender}` : ""} · {patient.mobile}{" "}
-              · {visits.length} visit
-              {visits.length === 1 ? "" : "s"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {visits.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No visits yet.</p>
-            ) : (
-              <ul className="divide-y">
-                {visits.map((v) => (
-                  <li
-                    key={v.id}
-                    className="flex flex-wrap items-center gap-3 py-2.5"
-                  >
-                    <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-sm font-extrabold tabular-nums">
-                      #{v.queueNumber ?? "—"}
-                    </span>
-                    <div className="min-w-40 flex-1">
-                      <p className="text-sm font-medium">
-                        {fmtFullDate(v.scheduledAt)}
-                      </p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {v.clinic.replace("_", " ")}
-                      </p>
-                    </div>
-                    <Badge variant="outline">{v.status}</Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        <PatientOverview patient={patient} />
       </TabsContent>
-      {visits.map((v) => (
-        <TabsContent key={v.id} value={v.id}>
-          <Card>
-            <CardHeader>
-              <CardTitle>Visit · {fmtFullDate(v.scheduledAt)}</CardTitle>
-              <CardDescription>
-                Queue #{v.queueNumber ?? "—"} ·{" "}
-                <span className="capitalize">{v.clinic.replace("_", " ")}</span>{" "}
-                · {v.status} · {v.paymentStatus}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Vitals, examination and prescription forms for this visit go here.
-            </CardContent>
-          </Card>
+      {visitsState.map((d) => (
+        <TabsContent key={d.id} value={d.id}>
+          <VisitForm
+            visit={d}
+            onSave={(values) => handleSaveVisit(d.id, values)}
+            onCancel={() => handleCancelVisit(d.id)}
+          />
         </TabsContent>
       ))}
     </Tabs>
