@@ -4,13 +4,14 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
+import { useAppointmentsHeader } from "@/features/appointments/appointments-header-context"
 
 export function SiteHeader() {
+  const { summary: appointmentsSummary } = useAppointmentsHeader()
   const { theme, setTheme } = useTheme()
   const isDark = theme === "dark"
   const routeMatch = useMatchRoute()
-  // Safe lookup: useRouterState never throws, unlike getRouteApi hooks which
-  // throw during the exit transition when the $patientId match is already gone.
+
   const patientMatch = useRouterState({
     select: (s) =>
       s.matches.find(
@@ -29,7 +30,7 @@ export function SiteHeader() {
   const title = routeMatch({ to: "/appointments" })
     ? "Appointments"
     : isPatientPage
-      ? patientTitle
+      ? patientTitle.toUpperCase()
       : routeMatch({ to: "/patients" })
         ? "All Patients"
         : routeMatch({ to: "/messages" })
@@ -47,6 +48,11 @@ export function SiteHeader() {
           className="mx-2 data-[orientation=vertical]:h-4"
         />
         <h1 className="text-base font-medium">{title}</h1>
+        {routeMatch({ to: "/appointments" }) && appointmentsSummary && (
+          <span className="text-base font-medium text-muted-foreground">
+            - {appointmentsSummary.lastQueueNumber}
+          </span>
+        )}
         <div className="ml-auto">
           <Button
             variant="ghost"

@@ -138,11 +138,17 @@ export function DataTable({
   onMarkPaid,
   payingId,
   onEdit,
+  pagination: controlledPagination,
+  onPaginationChange: onControlledPaginationChange,
 }: {
   data: z.infer<typeof schema>[]
   onMarkPaid?: (id: string) => void
   payingId?: string | null
   onEdit?: (row: z.infer<typeof schema>) => void
+  pagination?: { pageIndex: number; pageSize: number }
+  onPaginationChange?: React.Dispatch<
+    React.SetStateAction<{ pageIndex: number; pageSize: number }>
+  >
 }) {
   const columns = React.useMemo(
     () =>
@@ -288,10 +294,12 @@ export function DataTable({
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "queueNumber", desc: false },
   ])
-  const [pagination, setPagination] = React.useState({
+  const [localPagination, setLocalPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
   })
+  const pagination = controlledPagination ?? localPagination
+  const onPaginationChange = onControlledPaginationChange ?? setLocalPagination
 
   const table = useTable({
     features,
@@ -313,7 +321,7 @@ export function DataTable({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    onPaginationChange: setPagination,
+    onPaginationChange,
   })
 
   return (

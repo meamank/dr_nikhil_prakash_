@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -33,56 +34,52 @@ export function LinkPidDialog({
   onLinked: () => void
 }) {
   const [q, setQ] = React.useState("")
-  const [hits, setHits] = React.useState<PatientHit[]>([])
-  const [searching, setSearching] = React.useState(false)
-  const [linking, setLinking] = React.useState<string | null>(null)
+  const [appliedQuery, setAppliedQuery] = React.useState("")
 
   React.useEffect(() => {
     if (open && appointment) {
       // Prefill with the booked mobile so old patients surface immediately
       setQ(appointment.patientMobile)
-      search(appointment.patientMobile)
+      setAppliedQuery(appointment.patientMobile)
     } else {
       setQ("")
-      setHits([])
+      setAppliedQuery("")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, appointment?.id])
 
-  async function search(query = q) {
-    if (!query.trim()) {
-      setHits([])
-      return
-    }
-    setSearching(true)
-    try {
-      const params = new URLSearchParams({ q: query.trim(), limit: "10" })
+  const patientSearchQuery = useQuery({
+    queryKey: ["patient-search", appliedQuery] as const,
+    queryFn: async () => {
+      const params = new URLSearchParams({ q: appliedQuery, limit: "10" })
       const data = await apiGet<{ patients?: PatientHit[] }>(
         `/api/patients?${params}`
       )
-      setHits(data?.patients ?? [])
-    } catch {
-      setHits([])
-    } finally {
-      setSearching(false)
-    }
-  }
+      return data.patients ?? []
+    },
+    enabled: open && appliedQuery.length > 0,
+    staleTime: 30_000,
+  })
+  const hits = patientSearchQuery.data ?? []
 
-  async function link(pid: string) {
-    if (!appointment) return
-    setLinking(pid)
-    try {
-      await apiPost(`/api/booking/appointments/${appointment.id}/mark-paid`, {
+  const linkMutation = useMutation({
+    mutationFn: (pid: string) => {
+      if (!appointment) throw new Error("Appointment not found")
+      return apiPost(`/api/booking/appointments/${appointment.id}/mark-paid`, {
         pid,
       })
+    },
+    onSuccess: (_data, pid) => {
       toast.success(`Linked ${pid} — marked paid`)
       onOpenChange(false)
       onLinked()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Link failed")
-    } finally {
-      setLinking(null)
-    }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Link failed")
+    },
+  })
+
+  function search() {
+    setAppliedQuery(q.trim())
   }
 
   return (
@@ -111,13 +108,13 @@ export function LinkPidDialog({
             <Button
               variant="outline"
               className="mt-6"
-              onClick={() => search()}
-              disabled={searching}
+              onClick={search}
+              disabled={patientSearchQuery.isFetching}
             >
-              {searching ? "…" : "Search"}
+              {patientSearchQuery.isFetching ? "…" : "Search"}
             </Button>
           </div>
-          {hits.length === 0 && !searching ? (
+          {hits.length === 0 && !patientSearchQuery.isFetching ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
               No matches. Use Mark Paid to issue a new PID.
             </p>
@@ -140,10 +137,12 @@ export function LinkPidDialog({
                   </div>
                   <Button
                     size="sm"
-                    disabled={linking === p.pid}
-                    onClick={() => link(p.pid)}
+                    disabled={linkMutation.isPending}
+                    onClick={() => linkMutation.mutate(p.pid)}
                   >
-                    {linking === p.pid ? "Linking…" : "Link + Paid"}
+                    {linkMutation.isPending && linkMutation.variables === p.pid
+                      ? "Linking…"
+                      : "Link + Paid"}
                   </Button>
                 </li>
               ))}

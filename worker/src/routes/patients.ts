@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { and, desc, eq, like, or, sql } from "drizzle-orm"
+import { and, desc, eq, gte, like, lt, or, sql } from "drizzle-orm"
 import { createDb } from "../db"
 import * as schema from "../db/schema"
 import type { Env } from "../auth"
@@ -43,10 +43,11 @@ function presentVisit(visit: typeof schema.patientVisits.$inferSelect) {
   return { ...visit, details }
 }
 
-// GET /api/patients?q=&limit=&offset= — list all PID holders, newest first.
-// q matches pid, name, or mobile (partial).
+// GET /api/patients?q=&date=&limit=&offset= — list PID holders, newest first.
+// q matches name prefix, PID/mobile, or address (partial).
 patients.get("/", async (c) => {
   const q = c.req.query("q")?.trim() ?? ""
+  const date = c.req.query("date")
   const limit = Math.min(
     Math.max(Number(c.req.query("limit") ?? 50) || 50, 1),
     200,
@@ -54,13 +55,28 @@ patients.get("/", async (c) => {
   const offset = Math.max(Number(c.req.query("offset") ?? 0) || 0, 0)
 
   const db = createDb(c.env.DB)
-  const where = q
+  const textFilter = q
     ? or(
         like(schema.patients.pid, `%${q}%`),
-        like(schema.patients.fullName, `%${q}%`),
+        like(schema.patients.fullName, `${q}%`),
         like(schema.patients.mobile, `%${q}%`),
+        like(schema.patients.address, `%${q}%`),
       )
     : undefined
+  const dateFilter = date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? (() => {
+        const start = new Date(`${date}T00:00:00+05:30`)
+        const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+        return and(
+          gte(schema.patients.createdAt, start),
+          lt(schema.patients.createdAt, end),
+        )
+      })()
+    : undefined
+  const where =
+    textFilter && dateFilter
+      ? and(textFilter, dateFilter)
+      : textFilter ?? dateFilter
 
   const rows = await db
     .select()

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/combobox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { apiGet, apiPost } from "@/lib/api"
 import { formatClinicalText } from "@repo/shared"
+import { useClinicalOptions } from "@/features/patients/hooks/useClinicalOptions"
 
 export type LabReport = {
   test: string
@@ -42,13 +42,18 @@ export function LabReportsInput({
   const testRef = useRef<HTMLInputElement>(null)
   const resultRef = useRef<HTMLInputElement>(null)
   const dateRef = useRef<HTMLInputElement>(null)
-  const [options, setOptions] = useState<string[]>([])
   const [test, setTest] = useState("")
   const [result, setResult] = useState("")
   const [reportDate, setReportDate] = useState(todayISTDate())
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const {
+    options,
+    loadError,
+    isLoading: loading,
+    isSaving: saving,
+    createOption,
+  } = useClinicalOptions({ endpoint: "/api/clinical-options/lab-reports" })
+  const statusError = error ?? (loadError ? "Couldn’t load lab reports." : null)
 
   const candidate = normalize(test)
   const matches = options.filter((option) =>
@@ -59,23 +64,6 @@ export function LabReportsInput({
     candidate.length <= 200 &&
     !options.some((option) => keyFor(option) === keyFor(candidate))
   const items = canCreate ? [...matches, candidate] : matches
-
-  useEffect(() => {
-    let active = true
-    apiGet<{ options: string[] }>("/api/clinical-options/lab-reports")
-      .then((data) => {
-        if (active) setOptions(data.options.map(formatClinicalText))
-      })
-      .catch(() => {
-        if (active) setError("Couldn’t load lab reports.")
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [])
 
   async function saveTest(testName = test): Promise<string | null> {
     const cleanTest = normalize(testName)
@@ -93,22 +81,14 @@ export function LabReportsInput({
     )
     if (existing) return existing
 
-    setSaving(true)
     onPendingChange(true)
     setError(null)
     try {
-      const response = await apiPost<{ option: string }>(
-        "/api/clinical-options/lab-reports",
-        { label: cleanTest }
-      )
-      const saved = formatClinicalText(response.option)
-      setOptions((prev) => Array.from(new Set([...prev, saved])))
-      return saved
+      return await createOption(cleanTest)
     } catch {
       setError("Couldn’t save the test. Try again.")
       return null
     } finally {
-      setSaving(false)
       onPendingChange(false)
     }
   }
@@ -138,7 +118,6 @@ export function LabReportsInput({
     onChange([...value, { test: savedTest, result: cleanResult, reportDate }])
     setTest("")
     setResult("")
-    setReportDate(todayISTDate())
     setError(null)
     requestAnimationFrame(() => testRef.current?.focus())
   }
@@ -147,16 +126,16 @@ export function LabReportsInput({
     <div className="grid gap-2 sm:col-span-3">
       <div className="flex min-h-5 items-center justify-between gap-2">
         <Label htmlFor={`${id}-test`}>Lab reports</Label>
-        {(loading || saving || error) && (
+        {(loading || saving || statusError) && (
           <span
-            role={error ? "alert" : "status"}
+            role={statusError ? "alert" : "status"}
             className={
-              error
+              statusError
                 ? "text-xs text-destructive"
                 : "text-xs text-muted-foreground"
             }
           >
-            {error ?? (saving ? "Saving…" : "Loading…")}
+            {statusError ?? (saving ? "Saving…" : "Loading…")}
           </span>
         )}
       </div>

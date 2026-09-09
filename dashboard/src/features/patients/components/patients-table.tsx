@@ -67,6 +67,7 @@ export const patientSchema = z.object({
   userId: z.string().nullable(),
   fullName: z.string(),
   mobile: z.string(),
+  address: z.string().nullable(),
   ageYears: z.number().nullable(),
   gender: z.string().nullable(),
   isFirstLogin: z.union([z.boolean(), z.number()]),
@@ -79,10 +80,20 @@ export function PatientsTable({
   data,
   onDelete,
   deletingPid,
+  pagination: controlledPagination,
+  onPaginationChange: onControlledPaginationChange,
+  rowCount,
+  loading = false,
 }: {
   data: PatientRow[]
   onDelete?: (pid: string) => void
   deletingPid?: string | null
+  pagination?: { pageIndex: number; pageSize: number }
+  onPaginationChange?: React.Dispatch<
+    React.SetStateAction<{ pageIndex: number; pageSize: number }>
+  >
+  rowCount?: number
+  loading?: boolean
 }) {
   const columns = React.useMemo(
     () =>
@@ -201,10 +212,13 @@ export function PatientsTable({
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "pid", desc: true },
   ])
-  const [pagination, setPagination] = React.useState({
+  const [localPagination, setLocalPagination] = React.useState({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 30,
   })
+  const pagination = controlledPagination ?? localPagination
+  const onPaginationChange = onControlledPaginationChange ?? setLocalPagination
+  const manualPagination = controlledPagination !== undefined
 
   const table = useTable({
     features,
@@ -218,12 +232,15 @@ export function PatientsTable({
       pagination,
     },
     getRowId: (row) => row.pid,
+    manualPagination,
+    rowCount,
+    autoResetPageIndex: false,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    onPaginationChange: setPagination,
+    onPaginationChange,
   })
 
   return (
@@ -310,7 +327,7 @@ export function PatientsTable({
               variant="outline"
               className="hidden h-8 w-8 p-0 lg:flex"
               onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
+              disabled={loading || !table.getCanPreviousPage()}
             >
               <span className="sr-only">Go to first page</span>
               <ChevronsLeftIcon />
@@ -320,7 +337,7 @@ export function PatientsTable({
               className="size-8"
               size="icon"
               onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
+              disabled={loading || !table.getCanPreviousPage()}
             >
               <span className="sr-only">Go to previous page</span>
               <ChevronLeftIcon />
@@ -330,7 +347,7 @@ export function PatientsTable({
               className="size-8"
               size="icon"
               onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
+              disabled={loading || !table.getCanNextPage()}
             >
               <span className="sr-only">Go to next page</span>
               <ChevronRightIcon />
@@ -340,7 +357,7 @@ export function PatientsTable({
               className="hidden size-8 lg:flex"
               size="icon"
               onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
+              disabled={loading || !table.getCanNextPage()}
             >
               <span className="sr-only">Go to last page</span>
               <ChevronsRightIcon />

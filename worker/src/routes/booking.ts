@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { and, desc, eq, gte, like, lt, or, sql } from "drizzle-orm"
+import { and, desc, eq, gt, gte, like, lt, ne, or, sql } from "drizzle-orm"
 import { normalizePhone } from "@repo/shared"
 import { createDb } from "../db"
 import * as schema from "../db/schema"
@@ -176,7 +176,7 @@ booking.get("/appointments", async (c) => {
 
   const db = createDb(c.env.DB)
 
-  // Reception search: name, mobile, or address across recent appointments.
+  // Reception search: name prefix, mobile, or PID across recent appointments.
   if (searchQ) {
     const pattern = `%${searchQ}%`
     const rows = await db
@@ -184,9 +184,9 @@ booking.get("/appointments", async (c) => {
       .from(schema.appointments)
       .where(
         or(
-          like(schema.appointments.patientName, pattern),
+          like(schema.appointments.patientName, `${searchQ}%`),
           like(schema.appointments.patientMobile, pattern),
-          like(schema.appointments.patientAddress, pattern),
+          like(schema.appointments.patientPid, pattern),
         ),
       )
       .orderBy(desc(schema.appointments.createdAt))
@@ -292,7 +292,54 @@ booking.patch("/appointments/:id", async (c) => {
   }
   if (Object.keys(patch).length === 0) return bad(c, "Nothing to update")
 
-  await db.update(schema.appointments).set(patch).where(eq(schema.appointments.id, id))
+  const destinationClinic = patch.clinic ?? appt.clinic
+  const destinationScheduledAt = patch.scheduledAt ?? appt.scheduledAt
+  const currentDay = startOfDayIST(appt.scheduledAt)
+  const destinationDay = startOfDayIST(destinationScheduledAt)
+  const movedQueueScope =
+    destinationClinic !== appt.clinic ||
+    destinationDay.getTime() !== currentDay.getTime()
+
+  // Queue numbers belong to a specific clinic and date. A rescheduled booking
+  // joins the end of its new day's queue instead of carrying its old number.
+  if (movedQueueScope) {
+    const destinationEnd = new Date(
+      destinationDay.getTime() + 24 * 60 * 60 * 1000
+    )
+    const maxRow = await db
+      .select({ max: sql<number | null>`max(${schema.appointments.queueNumber})` })
+      .from(schema.appointments)
+      .where(
+        and(
+          eq(schema.appointments.clinic, destinationClinic),
+          gte(schema.appointments.scheduledAt, destinationDay),
+          lt(schema.appointments.scheduledAt, destinationEnd),
+          ne(schema.appointments.id, id),
+        )
+      )
+    patch.queueNumber = (maxRow[0]?.max ?? 0) + 1
+  }
+
+  if (movedQueueScope) {
+    const sourceEnd = new Date(currentDay.getTime() + 24 * 60 * 60 * 1000)
+    await db.batch([
+      db.update(schema.appointments).set(patch).where(eq(schema.appointments.id, id)),
+      // Close the source day's gap: 11 becomes 10, 12 becomes 11, and so on.
+      db
+        .update(schema.appointments)
+        .set({ queueNumber: sql`${schema.appointments.queueNumber} - 1` })
+        .where(
+          and(
+            eq(schema.appointments.clinic, appt.clinic),
+            gte(schema.appointments.scheduledAt, currentDay),
+            lt(schema.appointments.scheduledAt, sourceEnd),
+            gt(schema.appointments.queueNumber, appt.queueNumber),
+          )
+        ),
+    ])
+  } else {
+    await db.update(schema.appointments).set(patch).where(eq(schema.appointments.id, id))
+  }
   const updated = await db
     .select()
     .from(schema.appointments)

@@ -4,6 +4,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { getSession } from "@/lib/auth-client"
+import { AppointmentsHeaderProvider } from "@/features/appointments/appointments-header-context"
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
@@ -41,17 +42,19 @@ function AppLayout() {
         } as React.CSSProperties
       }
     >
-      <div className="flex min-h-svh w-full">
-        <AppSidebar variant="inset" />
-        <SidebarInset>
-          <SiteHeader />
-          <div className="flex flex-1 flex-col">
-            <div className="@container/main flex flex-1 flex-col gap-2">
-              <Outlet />
+      <AppointmentsHeaderProvider>
+        <div className="flex min-h-svh w-full">
+          <AppSidebar variant="inset" />
+          <SidebarInset>
+            <SiteHeader />
+            <div className="flex flex-1 flex-col">
+              <div className="@container/main flex flex-1 flex-col gap-2">
+                <Outlet />
+              </div>
             </div>
-          </div>
-        </SidebarInset>
-      </div>
+          </SidebarInset>
+        </div>
+      </AppointmentsHeaderProvider>
     </SidebarProvider>
   )
 }

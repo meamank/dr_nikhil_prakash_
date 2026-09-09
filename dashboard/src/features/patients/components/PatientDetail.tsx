@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
 import { getRouteApi, Link } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
 
 import { apiGet } from "@/lib/api"
 import { FormLoader } from "@/components/FormLoader"
@@ -21,32 +21,25 @@ type Patient = {
 
 export default function PatientDetail() {
   const { patientId } = routeApi.useParams()
-  const [patient, setPatient] = useState<Patient | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  async function load() {
-    setLoading(true)
-    setError(null)
-    try {
+  const patientQuery = useQuery({
+    queryKey: ["patient", patientId] as const,
+    queryFn: async () => {
       const data = await apiGet<{
         patient?: Patient
       }>(`/api/patients/${encodeURIComponent(patientId)}`)
       if (!data?.patient) throw new Error("Patient not found")
-      setPatient(data.patient)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load patient")
-    } finally {
-      setLoading(false)
-    }
-  }
+      return data.patient
+    },
+    staleTime: 30_000,
+  })
+  const patient = patientQuery.data
+  const errorMessage = patientQuery.error
+    ? patientQuery.error instanceof Error
+      ? patientQuery.error.message
+      : "Failed to load patient"
+    : null
 
-  useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId])
-
-  if (loading) {
+  if (patientQuery.isLoading) {
     return (
       <div className="flex flex-col gap-4 p-4 md:p-6">
         <FormLoader />
@@ -54,16 +47,19 @@ export default function PatientDetail() {
     )
   }
 
-  if (error && !patient) {
+  if (errorMessage && !patient) {
     return (
       <div className="flex flex-col gap-4 p-4 md:p-6">
         <p
           role="alert"
           className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          {error}
+          {errorMessage}
         </p>
-        <Link to="/patients" className="text-sm underline underline-offset-4">
+        <Link
+          to="/patients"
+          className="self-start text-sm underline underline-offset-4"
+        >
           ← Back to patients
         </Link>
       </div>
@@ -72,12 +68,12 @@ export default function PatientDetail() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
-      {error && (
+      {errorMessage && (
         <p
           role="alert"
           className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          {error}
+          {errorMessage}
         </p>
       )}
 
@@ -94,7 +90,10 @@ export default function PatientDetail() {
         />
       )}
 
-      <Link to="/patients" className="text-sm underline underline-offset-4">
+      <Link
+        to="/patients"
+        className="self-start text-sm underline underline-offset-4"
+      >
         ← Back to patients
       </Link>
     </div>

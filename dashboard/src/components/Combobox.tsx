@@ -1,6 +1,6 @@
 import { formatClinicalText } from "@repo/shared"
 import { formatClinicalInput } from "@/lib/clinical-input"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import {
   Combobox as UiCombobox,
   ComboboxChip,
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/combobox"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { apiGet, apiPost } from "@/lib/api"
+import { useClinicalOptions } from "@/features/patients/hooks/useClinicalOptions"
 
 const normalize = (value: string) => value.trim().replace(/\s+/g, " ")
 const keyFor = (value: string) => normalize(value).toLowerCase()
@@ -43,33 +43,18 @@ export function Combobox({
 }) {
   const anchor = useComboboxAnchor()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [options, setOptions] = useState<string[]>([])
   const [input, setInput] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [loadFailed, setLoadFailed] = useState(false)
-  const [attempt, setAttempt] = useState(0)
-
-  useEffect(() => {
-    let active = true
-    apiGet<Record<string, string[]>>(endpoint)
-      .then((data) => {
-        if (active) setOptions(data[optionsKey].map(formatClinicalText))
-      })
-      .catch(() => {
-        if (active) {
-          setError("Couldn’t load.")
-          setLoadFailed(true)
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [attempt, endpoint, optionsKey])
+  const {
+    options,
+    loadError,
+    isLoading: loading,
+    isSaving: saving,
+    createOption,
+    retry,
+  } = useClinicalOptions({ endpoint, optionsKey, optionKey })
+  const statusError = error ?? (loadError ? "Couldn’t load." : null)
+  const loadFailed = !!loadError
 
   const available = Array.from(new Set([...options, ...value]))
   const candidate = normalize(input)
@@ -90,16 +75,10 @@ export function Combobox({
       setInput("")
       return
     }
-    setSaving(true)
     onPendingChange(true)
     setError(null)
     try {
-      const response = await apiPost<Record<string, string>>(endpoint, {
-        label: added,
-      })
-      const savedOption = response[optionKey]
-      const option = formatClinicalText(savedOption)
-      setOptions((prev) => Array.from(new Set([...prev, option])))
+      const option = await createOption(added)
       onChange(
         Array.from(
           new Set(next.map((item) => (item === added ? option : item)))
@@ -110,7 +89,6 @@ export function Combobox({
       setInput(added)
       setError("Couldn’t save. Try again.")
     } finally {
-      setSaving(false)
       onPendingChange(false)
       requestAnimationFrame(() => inputRef.current?.focus())
     }
@@ -120,17 +98,17 @@ export function Combobox({
     <div className="grid gap-2">
       <div className="flex min-h-5 items-center justify-between gap-2">
         <Label htmlFor={id}>{label}</Label>
-        {(loading || saving || error) && (
+        {(loading || saving || statusError) && (
           <div
             id={`${id}-status`}
-            role={error ? "alert" : "status"}
+            role={statusError ? "alert" : "status"}
             className={
-              error
+              statusError
                 ? "flex items-center gap-1 text-xs text-destructive"
                 : "text-xs text-muted-foreground"
             }
           >
-            <span>{error ?? (saving ? "Saving…" : "Loading…")}</span>
+            <span>{statusError ?? (saving ? "Saving…" : "Loading…")}</span>
             {loadFailed && (
               <Button
                 type="button"
@@ -138,10 +116,8 @@ export function Combobox({
                 size="sm"
                 className="h-auto px-1 py-0 text-xs"
                 onClick={() => {
-                  setLoading(true)
-                  setLoadFailed(false)
                   setError(null)
-                  setAttempt((prev) => prev + 1)
+                  void retry()
                 }}
               >
                 Retry
@@ -175,8 +151,8 @@ export function Combobox({
             onChange={(e) => formatClinicalInput(e.currentTarget)}
             placeholder={placeholder}
             maxLength={200}
-            aria-describedby={loading || saving || error ? `${id}-status` : undefined}
-            aria-invalid={!!error}
+            aria-describedby={loading || saving || statusError ? `${id}-status` : undefined}
+            aria-invalid={!!statusError}
           />
         </ComboboxChips>
         <ComboboxContent anchor={anchor}>

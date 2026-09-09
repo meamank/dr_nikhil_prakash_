@@ -169,7 +169,7 @@ export function EditAppointmentSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="!w-screen !max-w-none overflow-y-auto sm:!max-w-none">
+      <SheetContent className="!w-screen !max-w-none overflow-y-auto sm:!w-3/4 sm:!max-w-sm">
         <SheetHeader>
           <SheetTitle>
             {mode === "create" ? "Add appointment" : "Edit appointment"}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { X } from "lucide-react"
 import { formatClinicalText } from "@repo/shared"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
-import { apiGet, apiPost } from "@/lib/api"
+import { useClinicalOptions } from "@/features/patients/hooks/useClinicalOptions"
 
 export type Medicine = {
   name: string
@@ -41,14 +41,21 @@ export function MedicinesInput({
   const medicineRef = useRef<HTMLInputElement>(null)
   const durationRef = useRef<HTMLInputElement>(null)
   const notesRef = useRef<HTMLInputElement>(null)
-  const [options, setOptions] = useState<string[]>([])
   const [medicine, setMedicine] = useState("")
   const [frequency, setFrequency] = useState<Medicine["frequency"]>("OD")
   const [duration, setDuration] = useState("")
   const [notes, setNotes] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const {
+    options,
+    loadError,
+    isLoading: loading,
+    isSaving: saving,
+    createOption,
+  } = useClinicalOptions({
+    endpoint: "/api/clinical-options/medicines-prescribed",
+  })
+  const statusError = error ?? (loadError ? "Couldn’t load medicines." : null)
 
   const medicineCandidate = normalize(medicine)
   const medicineMatches = options.filter((option) =>
@@ -70,23 +77,6 @@ export function MedicinesInput({
       ? [...durationMatches, durationCandidate]
       : durationMatches
 
-  useEffect(() => {
-    let active = true
-    apiGet<{ options: string[] }>("/api/clinical-options/medicines-prescribed")
-      .then((data) => {
-        if (active) setOptions(data.options.map(formatClinicalText))
-      })
-      .catch(() => {
-        if (active) setError("Couldn’t load medicines.")
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
   async function saveMedicine(medicineName = medicine): Promise<string | null> {
     const cleanMedicine = normalize(medicineName)
     if (!cleanMedicine) {
@@ -100,22 +90,14 @@ export function MedicinesInput({
     const existing = options.find((option) => keyFor(option) === keyFor(cleanMedicine))
     if (existing) return existing
 
-    setSaving(true)
     onPendingChange(true)
     setError(null)
     try {
-      const response = await apiPost<{ option: string }>(
-        "/api/clinical-options/medicines-prescribed",
-        { label: cleanMedicine }
-      )
-      const saved = formatClinicalText(response.option)
-      setOptions((prev) => Array.from(new Set([...prev, saved])))
-      return saved
+      return await createOption(cleanMedicine)
     } catch {
       setError("Couldn’t save the medicine. Try again.")
       return null
     } finally {
-      setSaving(false)
       onPendingChange(false)
     }
   }
@@ -165,12 +147,12 @@ export function MedicinesInput({
     <div className="grid gap-2 sm:col-span-3">
       <div className="flex min-h-5 items-center justify-between gap-2">
         <Label htmlFor={`${id}-medicine`}>Medicines prescribed</Label>
-        {(loading || saving || error) && (
+        {(loading || saving || statusError) && (
           <span
-            role={error ? "alert" : "status"}
-            className={error ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
+            role={statusError ? "alert" : "status"}
+            className={statusError ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
           >
-            {error ?? (saving ? "Saving…" : "Loading…")}
+            {statusError ?? (saving ? "Saving…" : "Loading…")}
           </span>
         )}
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,8 +10,10 @@ import {
   EditAppointmentSheet,
   type AppointmentPatch,
 } from "./edit-appointment-sheet"
+import { useAppointmentsHeader } from "../appointments-header-context"
 
 type Clinic = "juran_chhapra" | "bhagwanpur"
+type Pagination = { pageIndex: number; pageSize: number }
 
 const CLINICS: { id: Clinic; label: string }[] = [
   { id: "juran_chhapra", label: "Juran Chhapra" },
@@ -22,65 +25,92 @@ function todayIST(): string {
   return ist.toISOString().slice(0, 10)
 }
 
+function initialPagination(): Pagination {
+  const isMobile =
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches
+  return { pageIndex: 0, pageSize: isMobile ? 15 : 10 }
+}
+
+function matchesAppointmentSearch(appointment: AppointmentRow, query: string) {
+  const search = query.trim().toLowerCase()
+  if (!search) return true
+  return (
+    appointment.patientName.toLowerCase().startsWith(search) ||
+    appointment.patientMobile.includes(search) ||
+    appointment.patientPid?.toLowerCase().includes(search) === true ||
+    appointment.patientAddress?.toLowerCase().includes(search) === true
+  )
+}
+
 export default function AppointmentsPage() {
+  const queryClient = useQueryClient()
+  const { setSummary } = useAppointmentsHeader()
   const [clinic, setClinic] = useState<Clinic>("juran_chhapra")
   const [date, setDate] = useState(todayIST())
   const [search, setSearch] = useState("")
-  const [rows, setRows] = useState<AppointmentRow[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [payingId, setPayingId] = useState<string | null>(null)
+  const [pagination, setPagination] = useState<Pagination>(initialPagination)
   const [editing, setEditing] = useState<AppointmentRow | null>(null)
-  const [saving, setSaving] = useState(false)
-
-  async function load() {
-    setLoading(true)
-    setError(null)
-    try {
+  const key = ["appointments", { clinic, date }] as const
+  const appointmentsQuery = useQuery({
+    queryKey: key,
+    queryFn: async () => {
       const params = new URLSearchParams({ clinic, date })
-      if (search.trim()) params.set("q", search.trim())
       const data = await apiGet<{ appointments?: AppointmentRow[] }>(
         `/api/booking/appointments?${params}`
       )
-      setRows(data?.appointments ?? [])
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load appointments")
-    } finally {
-      setLoading(false)
-    }
-  }
+      return data.appointments ?? []
+    },
+    staleTime: 30_000,
+  })
+  const rows = appointmentsQuery.data ?? []
+  // The complete clinic/day queue is already loaded, so searching is instant
+  // and does not make an API request for each typed character.
+  const visibleRows = rows.filter((appointment) =>
+    matchesAppointmentSearch(appointment, search)
+  )
+  const lastQueueNumber = visibleRows.reduce(
+    (highest, appointment) => Math.max(highest, appointment.queueNumber),
+    0
+  )
 
   useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clinic, date])
+    setSummary(
+      visibleRows.length > 0
+        ? { count: visibleRows.length, lastQueueNumber }
+        : null
+    )
+    return () => setSummary(null)
+  }, [lastQueueNumber, setSummary, visibleRows.length])
 
-  async function markPaid(id: string) {
-    setPayingId(id)
-    setError(null)
-    try {
-      await apiPost(`/api/booking/appointments/${id}/mark-paid`)
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Mark paid failed")
-    } finally {
-      setPayingId(null)
-    }
+  const markPaidMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiPost(`/api/booking/appointments/${encodeURIComponent(id)}/mark-paid`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+  })
+
+  const saveEditMutation = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: AppointmentPatch }) =>
+      apiPatch(`/api/booking/appointments/${encodeURIComponent(id)}`, patch),
+    onSuccess: () => {
+      setEditing(null)
+      return queryClient.invalidateQueries({ queryKey: key })
+    },
+  })
+  const requestError =
+    appointmentsQuery.error ?? markPaidMutation.error ?? saveEditMutation.error
+
+  function resetToFirstPage() {
+    setPagination((current) => ({ ...current, pageIndex: 0 }))
   }
 
-  async function saveEdit(id: string | null, patch: AppointmentPatch) {
-    setSaving(true)
-    setError(null)
-    try {
-      if (id === null) return
-      await apiPatch(`/api/booking/appointments/${id}`, patch)
-      setEditing(null)
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed")
-    } finally {
-      setSaving(false)
-    }
+  function changeClinic(next: Clinic) {
+    setClinic(next)
+    resetToFirstPage()
+  }
+
+  function changeDate(next: string) {
+    setDate(next)
+    resetToFirstPage()
   }
 
   return (
@@ -92,7 +122,7 @@ export default function AppointmentsPage() {
             <Button
               key={c.id}
               variant={clinic === c.id ? "default" : "outline"}
-              onClick={() => setClinic(c.id)}
+              onClick={() => changeClinic(c.id)}
             >
               {c.label}
             </Button>
@@ -101,40 +131,45 @@ export default function AppointmentsPage() {
         <Input
           type="date"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(e) => changeDate(e.target.value)}
           className="w-auto"
         />
         <div className="flex gap-2">
           <Input
-            placeholder="Search name, mobile, address…"
+            placeholder="Search name, mobile, PID, address…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && load()}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              resetToFirstPage()
+            }}
             className="w-44"
           />
-          <Button variant="outline" onClick={load}>
-            Search
-          </Button>
         </div>
-        <Button variant="ghost" onClick={load} disabled={loading}>
-          {loading ? "Loading…" : "Refresh"}
+        <Button
+          variant="ghost"
+          onClick={() => queryClient.invalidateQueries({ queryKey: key })}
+          disabled={appointmentsQuery.isFetching}
+        >
+          {appointmentsQuery.isFetching ? "Loading…" : "Refresh"}
         </Button>
         <Button className="ml-auto" asChild>
           <Link to="/appointments/add">+ Add Appointment</Link>
         </Button>
       </div>
 
-      {error && (
+      {requestError && (
         <p
           role="alert"
           className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          {error}
+          {requestError instanceof Error
+            ? requestError.message
+            : "Could not update appointments."}
         </p>
       )}
 
       {/* List */}
-      {rows.length === 0 && !loading ? (
+      {visibleRows.length === 0 && !appointmentsQuery.isLoading ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
             No bookings for {CLINICS.find((c) => c.id === clinic)?.label} on{" "}
@@ -143,10 +178,16 @@ export default function AppointmentsPage() {
         </Card>
       ) : (
         <DataTable
-          data={rows}
-          onMarkPaid={markPaid}
-          payingId={payingId}
+          data={visibleRows}
+          onMarkPaid={(id) => markPaidMutation.mutate(id)}
+          payingId={
+            markPaidMutation.isPending
+              ? markPaidMutation.variables ?? null
+              : null
+          }
           onEdit={setEditing}
+          pagination={pagination}
+          onPaginationChange={setPagination}
         />
       )}
 
@@ -154,8 +195,10 @@ export default function AppointmentsPage() {
         appointment={editing}
         open={editing !== null}
         onOpenChange={(open) => !open && setEditing(null)}
-        onSave={saveEdit}
-        saving={saving}
+        onSave={(id, patch) => {
+          if (id !== null) saveEditMutation.mutate({ id, patch })
+        }}
+        saving={saveEditMutation.isPending}
         mode="edit"
       />
     </div>
