@@ -1,4 +1,9 @@
 import { useEffect, useState } from "react"
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PatientOverview } from "@/features/patients/components/PatientOverview"
@@ -54,6 +59,10 @@ function toVisitData(visit: StoredVisit): VisitData {
   }
 }
 
+function visitQueryKey(pid: string) {
+  return ["patient", pid, "visits"] as const
+}
+
 export function VisitTabs({
   patient,
   onAddVisit,
@@ -64,35 +73,63 @@ export function VisitTabs({
   visits?: VisitTabItem[]
   onAddVisit?: () => void
 }) {
-  const [visitsState, setVisitsState] = useState<VisitData[]>([])
+  const queryClient = useQueryClient()
+  const [draftVisits, setDraftVisits] = useState<VisitData[]>([])
   const [active, setActive] = useState("overview")
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const key = visitQueryKey(patient.pid)
+  const visitsQuery = useQuery({
+    queryKey: key,
+    queryFn: async () => {
+      const data = await apiGet<{ visits?: StoredVisit[] }>(
+        `/api/patients/${encodeURIComponent(patient.pid)}/visits`
+      )
+      return (data.visits ?? []).map(toVisitData)
+    },
+    staleTime: 30_000,
+    // Do not replace data while a clinician is entering an active visit.
+    refetchOnWindowFocus: false,
+  })
+  const savedVisits = visitsQuery.data ?? []
+  const visitsState = [...savedVisits, ...draftVisits]
 
   useEffect(() => {
-    let activeRequest = true
-    apiGet<{ visits?: StoredVisit[] }>(
-      `/api/patients/${encodeURIComponent(patient.pid)}/visits`
-    )
-      .then((data) => {
-        if (activeRequest) setVisitsState((data.visits ?? []).map(toVisitData))
-      })
-      .catch((error) => {
-        if (activeRequest) {
-          setLoadError(
-            error instanceof Error ? error.message : "Couldn’t load visits."
-          )
-        }
-      })
-    return () => {
-      activeRequest = false
-    }
+    setDraftVisits([])
+    setActive("overview")
   }, [patient.pid])
+
+  const saveVisitMutation = useMutation({
+    mutationFn: async ({ id, values }: { id: string; values: VisitValues }) => {
+      const isNewVisit = id.startsWith("new-visit-")
+      const response = isNewVisit
+        ? await apiPost<{ visit: StoredVisit }>(
+            `/api/patients/${encodeURIComponent(patient.pid)}/visits`,
+            values
+          )
+        : await apiPatch<{ visit: StoredVisit }>(
+            `/api/patients/${encodeURIComponent(patient.pid)}/visits/${encodeURIComponent(id)}`,
+            values
+          )
+      return { id, savedVisit: toVisitData(response.visit) }
+    },
+    onSuccess: ({ id, savedVisit }) => {
+      queryClient.setQueryData<VisitData[]>(key, (current = []) => {
+        const existingIndex = current.findIndex((visit) => visit.id === id)
+        if (existingIndex === -1) return [...current, savedVisit]
+        return current.map((visit) =>
+          visit.id === id ? savedVisit : visit
+        )
+      })
+      setDraftVisits((current) => current.filter((visit) => visit.id !== id))
+      setActive((current) => (current === id ? savedVisit.id : current))
+      void queryClient.invalidateQueries({ queryKey: key })
+    },
+  })
 
   function handleAddVisit() {
     onAddVisit?.()
     const today = todayISTDate()
     const id = `new-visit-${Date.now()}`
-    setVisitsState((prev) => [
+    setDraftVisits((prev) => [
       ...prev,
       {
         id,
@@ -117,21 +154,7 @@ export function VisitTabs({
   }
 
   async function handleSaveVisit(id: string, values: VisitValues) {
-    const isNewVisit = id.startsWith("new-visit-")
-    const response = isNewVisit
-      ? await apiPost<{ visit: StoredVisit }>(
-          `/api/patients/${encodeURIComponent(patient.pid)}/visits`,
-          values
-        )
-      : await apiPatch<{ visit: StoredVisit }>(
-          `/api/patients/${encodeURIComponent(patient.pid)}/visits/${encodeURIComponent(id)}`,
-          values
-        )
-    const savedVisit = toVisitData(response.visit)
-    setVisitsState((prev) =>
-      prev.map((visit) => (visit.id === id ? savedVisit : visit))
-    )
-    if (active === id) setActive(savedVisit.id)
+    await saveVisitMutation.mutateAsync({ id, values })
   }
 
   // Draft only: discard the tab (accidental-click escape).
@@ -139,7 +162,7 @@ export function VisitTabs({
   // locked view inside VisitForm (Option A), data is kept.
   function handleCancelVisit(id: string) {
     const remaining = visitsState.filter((d) => d.id !== id)
-    setVisitsState(remaining)
+    setDraftVisits((current) => current.filter((visit) => visit.id !== id))
     if (active === id) {
       setActive(
         remaining.length ? remaining[remaining.length - 1].id : "overview"
@@ -166,9 +189,11 @@ export function VisitTabs({
           + Add Visit
         </Button>
       </div>
-      {loadError && (
+      {visitsQuery.error && (
         <p role="alert" className="text-sm text-destructive">
-          {loadError}
+          {visitsQuery.error instanceof Error
+            ? visitsQuery.error.message
+            : "Couldn’t load visits."}
         </p>
       )}
       <TabsContent value="overview">
