@@ -68,3 +68,4 @@ Clinic-Portal-architecture.md
 .agent/
 DEPLOY.md
 DEPLOY.md
+worker/scripts/seed-overview-demo.ts

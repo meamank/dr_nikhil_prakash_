@@ -26,11 +26,13 @@ export function SiteHeader() {
   }
   const isPatientPage = !!routeMatch({ to: "/patients/$patientId" })
   const patientTitle =
-    patientLoader?.patient?.fullName ?? patientParams.patientId ?? "Patient"
+    patientLoader?.patient?.fullName?.toUpperCase() ??
+    patientParams.patientId ??
+    "Patient"
   const title = routeMatch({ to: "/appointments" })
     ? "Appointments"
     : isPatientPage
-      ? patientTitle.toUpperCase()
+      ? patientTitle
       : routeMatch({ to: "/patients" })
         ? "All Patients"
         : routeMatch({ to: "/messages" })

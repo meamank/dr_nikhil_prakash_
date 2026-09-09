@@ -7,13 +7,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select"
@@ -552,24 +545,22 @@ export function VisitForm({
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${visit.id}-assessment-form`}>Add disease assessment</Label>
-            <Select
+            <NativeSelect
+              id={`${visit.id}-assessment-form`}
               value=""
-              onValueChange={(value) => {
+              onChange={(event) => {
+                const value = event.currentTarget.value
                 if (value === "t2dm" || value === "ibs") addAssessment(value)
               }}
             >
-              <SelectTrigger id={`${visit.id}-assessment-form`} className="w-full">
-                <SelectValue placeholder="Select a form" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="t2dm" disabled={!!draft.t2dmAssessment}>
-                  T2DM assessment
-                </SelectItem>
-                <SelectItem value="ibs" disabled={!!draft.ibsAssessment}>
-                  IBS assessment
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              <NativeSelectOption value="">Select a form</NativeSelectOption>
+              <NativeSelectOption value="t2dm" disabled={!!draft.t2dmAssessment}>
+                T2DM assessment
+              </NativeSelectOption>
+              <NativeSelectOption value="ibs" disabled={!!draft.ibsAssessment}>
+                IBS assessment
+              </NativeSelectOption>
+            </NativeSelect>
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${visit.id}-remarks`}>Remarks</Label>
