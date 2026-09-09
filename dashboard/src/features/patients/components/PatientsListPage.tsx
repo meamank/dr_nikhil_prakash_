@@ -79,7 +79,9 @@ export default function PatientsListPage() {
   })
   const rows = patientsQuery.data?.patients ?? []
   const total = patientsQuery.data?.total ?? 0
-  const visibleRows = rows.filter((patient) => matchesPatientSearch(patient, q))
+  const visibleRows = showAll
+    ? rows
+    : rows.filter((patient) => matchesPatientSearch(patient, q))
   const displayedTotal = showAll ? total : visibleRows.length
 
   const deletePatientMutation = useMutation({
@@ -137,21 +139,20 @@ export default function PatientsListPage() {
     <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex items-end gap-2">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="patients-date" className="text-sm font-medium">
-              Patients added on
-            </label>
-            <Input
-              id="patients-date"
-              type="date"
-              value={date}
-              onChange={(event) => {
-                setDate(event.target.value)
-                setShowAll(false)
-              }}
-              className="w-auto"
-            />
-          </div>
+          {!showAll && (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="patients-date" className="text-sm font-medium">
+                Patients added on
+              </label>
+              <Input
+                id="patients-date"
+                type="date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                className="w-auto"
+              />
+            </div>
+          )}
           <Button
             variant={showAll ? "default" : "outline"}
             onClick={togglePatientScope}
