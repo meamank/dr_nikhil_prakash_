@@ -110,8 +110,14 @@ export function createAuth(env: Env) {
         },
       }),
 
-      // Username + password — used for PID login
-      username(),
+      // Username + password — used for PID and staff login. Keep this aligned
+      // with the staff-creation validation and the existing `user` table.
+      username({
+        displayUsername: false,
+        minUsernameLength: 3,
+        maxUsernameLength: 32,
+        usernameValidator: (value) => /^[a-z0-9_]+$/i.test(value),
+      }),
     ],
 
 
