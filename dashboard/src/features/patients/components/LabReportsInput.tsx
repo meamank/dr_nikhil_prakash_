@@ -97,7 +97,9 @@ export function LabReportsInput({
     const savedTest = await saveTest(nextTest)
     if (!savedTest) return
     setTest(savedTest)
-    resultRef.current?.focus()
+    // A newly created option briefly disables the row while it is saved.
+    // Focus on the following frame, after the Result input is enabled again.
+    requestAnimationFrame(() => resultRef.current?.focus())
   }
 
   async function addReport() {

@@ -173,8 +173,8 @@ export function VisitTabs({
   return (
     <Tabs value={active} onValueChange={setActive} className="w-full">
       <div className="flex items-center gap-2">
-        <div className="no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
-          <TabsList className="w-max min-w-full">
+        <div className="no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden md:flex-none md:overflow-visible">
+          <TabsList className="w-max min-w-full md:min-w-0">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             {visitsState.map((d) => (
               <TabsTrigger key={d.id} value={d.id}>
@@ -186,7 +186,7 @@ export function VisitTabs({
         <Button
           size="sm"
           onClick={handleAddVisit}
-          className="shrink-0"
+          className="ml-auto shrink-0"
         >
           + Add Visit
         </Button>

@@ -1,9 +1,15 @@
+import { useState } from "react"
 import { getRouteApi, Link } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import { apiGet } from "@/lib/api"
+import { Button } from "@/components/ui/button"
+import { apiGet, apiPatch } from "@/lib/api"
 import { FormLoader } from "@/components/FormLoader"
 import { VisitTabs } from "@/components/VisitTabs"
+import {
+  EditPatientSheet,
+  type PatientDemographicsPatch,
+} from "./EditPatientSheet"
 
 const routeApi = getRouteApi("/_authenticated/patients/$patientId")
 
@@ -21,6 +27,8 @@ type Patient = {
 
 export default function PatientDetail() {
   const { patientId } = routeApi.useParams()
+  const queryClient = useQueryClient()
+  const [editingDemographics, setEditingDemographics] = useState(false)
   const patientQuery = useQuery({
     queryKey: ["patient", patientId] as const,
     queryFn: async () => {
@@ -33,10 +41,25 @@ export default function PatientDetail() {
     staleTime: 30_000,
   })
   const patient = patientQuery.data
-  const errorMessage = patientQuery.error
-    ? patientQuery.error instanceof Error
-      ? patientQuery.error.message
-      : "Failed to load patient"
+  const updatePatientMutation = useMutation({
+    mutationFn: (patch: PatientDemographicsPatch) =>
+      apiPatch<{ patient: Patient }>(
+        `/api/patients/${encodeURIComponent(patientId)}`,
+        patch
+      ),
+    onSuccess: ({ patient: updatedPatient }) => {
+      queryClient.setQueryData(["patient", patientId], updatedPatient)
+      setEditingDemographics(false)
+      return queryClient.invalidateQueries({ queryKey: ["patients"] })
+    },
+  })
+  const requestError = patientQuery.error ?? updatePatientMutation.error
+  const errorMessage = requestError
+    ? requestError instanceof Error
+      ? requestError.message
+      : patientQuery.error
+        ? "Failed to load patient"
+        : "Failed to update patient details"
     : null
 
   if (patientQuery.isLoading) {
@@ -78,16 +101,30 @@ export default function PatientDetail() {
       )}
 
       {patient && (
-        <VisitTabs
-          patient={{
-            pid: patient.pid,
-            fullName: patient.fullName,
-            mobile: patient.mobile,
-            address: patient.address,
-            ageYears: patient.ageYears,
-            gender: patient.gender,
-          }}
-        />
+        <>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setEditingDemographics(true)}>
+              Edit details
+            </Button>
+          </div>
+          <VisitTabs
+            patient={{
+              pid: patient.pid,
+              fullName: patient.fullName,
+              mobile: patient.mobile,
+              address: patient.address,
+              ageYears: patient.ageYears,
+              gender: patient.gender,
+            }}
+          />
+          <EditPatientSheet
+            patient={patient}
+            open={editingDemographics}
+            onOpenChange={setEditingDemographics}
+            onSave={(patch) => updatePatientMutation.mutate(patch)}
+            saving={updatePatientMutation.isPending}
+          />
+        </>
       )}
 
       <Link
