@@ -226,7 +226,7 @@ booking.patch("/appointments/:id", async (c) => {
       patientGender?: "male" | "female" | "other" | null
       clinic?: "juran_chhapra" | "bhagwanpur"
       date?: string
-      status?: "not_paid" | "paid" | "in_progress" | "done" | "cancelled" | "no_show"
+      status?: "not_paid" | "paid" | "foc" | "refunded" | "in_progress" | "done" | "cancelled" | "no_show"
     }>()
     .catch(() => null)
   if (!body) return bad(c, "Invalid body")
@@ -275,20 +275,47 @@ booking.patch("/appointments/:id", async (c) => {
   }
   if (body.date !== undefined) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date)) return bad(c, "Pick a valid date")
-    const todayIST = startOfDayIST(new Date())
-    const maxIST = new Date(todayIST.getTime() + 2 * 24 * 60 * 60 * 1000)
     const picked = new Date(`${body.date}T00:00:00+05:30`)
     if (Number.isNaN(picked.getTime())) return bad(c, "Pick a valid date")
     const pickedDay = startOfDayIST(picked)
-    if (pickedDay < todayIST) return bad(c, "Date cannot be in the past")
-    if (pickedDay > maxIST) return bad(c, "Booking is open only for today and the next 2 days")
+    // Historical bookings may need correction, so edit requests are not
+    // limited to the current booking window.
     patch.scheduledAt = new Date(pickedDay.getTime() + 12 * 60 * 60 * 1000)
   }
   if (body.status !== undefined) {
-    if (!["not_paid", "paid", "in_progress", "done", "cancelled", "no_show"].includes(body.status)) {
+    if (!["not_paid", "paid", "foc", "refunded", "in_progress", "done", "cancelled", "no_show"].includes(body.status)) {
       return bad(c, "Invalid status")
     }
+    if ((body.status === "paid" || body.status === "foc") && !appt.patientPid) {
+      return bad(c, "Issue or link a PID before marking an appointment Paid or FOC")
+    }
+    if (body.status === "refunded" && appt.paymentStatus !== "paid") {
+      return bad(c, "Only a paid appointment can be refunded")
+    }
     patch.status = body.status
+    // Reverting to Not Paid is an explicit payment undo. Keep the prior PID
+    // reference and origin for audit/possible guarded cleanup, but remove the
+    // active appointment-to-patient link and all payment/check-in state.
+    if (body.status === "not_paid" && appt.patientPid) {
+      patch.patientPid = null
+      patch.paymentPatientPid = appt.patientPid
+      patch.paymentStatus = "unpaid"
+      patch.paymentMode = null
+      patch.checkedInBy = null
+      patch.checkedInAt = null
+    }
+    if (body.status === "paid" && appt.patientPid) {
+      patch.paymentStatus = "paid"
+      patch.paymentMode = "cash"
+    }
+    if (body.status === "foc" && appt.patientPid) {
+      patch.paymentStatus = "foc"
+      patch.paymentMode = null
+    }
+    // Keep the appointment, PID, and all clinical records intact on refund.
+    if (body.status === "refunded") {
+      patch.paymentStatus = "refunded"
+    }
   }
   if (Object.keys(patch).length === 0) return bad(c, "Nothing to update")
 
@@ -348,12 +375,94 @@ booking.patch("/appointments/:id", async (c) => {
   return c.json({ appointment: updated[0] })
 })
 
+// DELETE /api/booking/appointments/:id — remove an appointment and close its
+// queue gap. A patient is deleted only when this appointment created the PID,
+// and that patient has no visits, other linked appointments, or portal account.
+booking.delete("/appointments/:id", async (c) => {
+  const id = c.req.param("id")
+  const db = createDb(c.env.DB)
+  const rows = await db
+    .select()
+    .from(schema.appointments)
+    .where(eq(schema.appointments.id, id))
+    .limit(1)
+  const appt = rows[0]
+  if (!appt) return bad(c, "Appointment not found", 404)
+
+  const cleanupPid =
+    appt.patientPidOrigin === "created"
+      ? appt.paymentPatientPid ?? appt.patientPid
+      : null
+  let deletedPatient = false
+
+  if (cleanupPid) {
+    const [patient] = await db
+      .select({ pid: schema.patients.pid, userId: schema.patients.userId })
+      .from(schema.patients)
+      .where(eq(schema.patients.pid, cleanupPid))
+      .limit(1)
+    const [visit] = await db
+      .select({ id: schema.patientVisits.id })
+      .from(schema.patientVisits)
+      .where(eq(schema.patientVisits.patientPid, cleanupPid))
+      .limit(1)
+    const [otherAppointment] = await db
+      .select({ id: schema.appointments.id })
+      .from(schema.appointments)
+      .where(
+        and(
+          eq(schema.appointments.patientPid, cleanupPid),
+          ne(schema.appointments.id, id),
+        )
+      )
+      .limit(1)
+    deletedPatient = !!patient && !patient.userId && !visit && !otherAppointment
+  }
+
+  const dayStart = startOfDayIST(appt.scheduledAt)
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+  const deleteAppointment = db
+    .delete(schema.appointments)
+    .where(eq(schema.appointments.id, id))
+  const closeQueueGap = db
+    .update(schema.appointments)
+    .set({ queueNumber: sql`${schema.appointments.queueNumber} - 1` })
+    .where(
+      and(
+        eq(schema.appointments.clinic, appt.clinic),
+        gte(schema.appointments.scheduledAt, dayStart),
+        lt(schema.appointments.scheduledAt, dayEnd),
+        gt(schema.appointments.queueNumber, appt.queueNumber),
+      )
+    )
+  if (deletedPatient && cleanupPid) {
+    await db.batch([
+      deleteAppointment,
+      closeQueueGap,
+      db.delete(schema.patients).where(eq(schema.patients.pid, cleanupPid)),
+    ])
+  } else {
+    await db.batch([deleteAppointment, closeQueueGap])
+  }
+
+  return c.json({ ok: true, deletedPatient })
+})
+
 // POST /api/booking/appointments/:id/mark-paid (staff-only — TODO: require staff session)
-// Body: { pid?: string } — if an existing PID is given, link to it (old
-// patient). Otherwise generate a new PID + patients row (new patient).
+// Body: { pid?: string, paymentStatus?: "paid" | "foc" } — if an existing
+// PID is given, link to it (old patient). Otherwise generate a new PID +
+// patients row (new patient).
 booking.post("/appointments/:id/mark-paid", async (c) => {
   const id = c.req.param("id")
-  const body = await c.req.json<{ pid?: string }>().catch(() => null)
+  const body = await c.req
+    .json<{ pid?: string; paymentStatus?: "paid" | "foc" }>()
+    .catch(() => null)
+  const paymentStatus = body?.paymentStatus ?? "paid"
+  if (paymentStatus !== "paid" && paymentStatus !== "foc") {
+    return bad(c, "Invalid payment status")
+  }
+  const appointmentStatus = paymentStatus === "foc" ? "foc" : "paid"
+  const paymentMode = paymentStatus === "paid" ? "cash" : null
   const db = createDb(c.env.DB)
 
   const rows = await db
@@ -380,9 +489,11 @@ booking.post("/appointments/:id/mark-paid", async (c) => {
       .update(schema.appointments)
       .set({
         patientPid: linkPid,
-        status: "paid",
-        paymentStatus: "paid",
-        paymentMode: "cash",
+        patientPidOrigin: "linked",
+        paymentPatientPid: linkPid,
+        status: appointmentStatus,
+        paymentStatus,
+        paymentMode,
         checkedInAt: new Date(),
       })
       .where(eq(schema.appointments.id, id))
@@ -422,9 +533,11 @@ booking.post("/appointments/:id/mark-paid", async (c) => {
       .update(schema.appointments)
       .set({
         patientPid: pid,
-        status: "paid",
-        paymentStatus: "paid",
-        paymentMode: "cash",
+        patientPidOrigin: "created",
+        paymentPatientPid: pid,
+        status: appointmentStatus,
+        paymentStatus,
+        paymentMode,
         checkedInAt: new Date(),
       })
       .where(eq(schema.appointments.id, id)),

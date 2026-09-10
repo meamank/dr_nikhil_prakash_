@@ -3,9 +3,12 @@ import { Link } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { Input } from "@/components/ui/input"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { DataTable, type AppointmentRow } from "@/components/data-table"
-import { apiGet, apiPatch, apiPost } from "@/lib/api"
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api"
+import { toast } from "sonner"
 import {
   EditAppointmentSheet,
   type AppointmentPatch,
@@ -27,7 +30,8 @@ function todayIST(): string {
 
 function initialPagination(): Pagination {
   const isMobile =
-    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 767px)").matches
   return { pageIndex: 0, pageSize: isMobile ? 15 : 10 }
 }
 
@@ -48,8 +52,12 @@ export default function AppointmentsPage() {
   const [clinic, setClinic] = useState<Clinic>("juran_chhapra")
   const [date, setDate] = useState(todayIST())
   const [search, setSearch] = useState("")
+  const [refreshing, setRefreshing] = useState(false)
   const [pagination, setPagination] = useState<Pagination>(initialPagination)
   const [editing, setEditing] = useState<AppointmentRow | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<AppointmentRow | null>(
+    null
+  )
   const key = ["appointments", { clinic, date }] as const
   const appointmentsQuery = useQuery({
     queryKey: key,
@@ -89,15 +97,62 @@ export default function AppointmentsPage() {
   })
 
   const saveEditMutation = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: AppointmentPatch }) =>
-      apiPatch(`/api/booking/appointments/${encodeURIComponent(id)}`, patch),
+    mutationFn: async ({
+      id,
+      patch,
+    }: {
+      id: string
+      patch: AppointmentPatch
+    }) => {
+      const appointment = rows.find((row) => row.id === id)
+      const requestedPaymentStatus =
+        patch.status === "paid" || patch.status === "foc" ? patch.status : null
+
+      if (requestedPaymentStatus && !appointment?.patientPid) {
+        const details = { ...patch }
+        delete details.status
+        await apiPatch(
+          `/api/booking/appointments/${encodeURIComponent(id)}`,
+          details
+        )
+        return apiPost(
+          `/api/booking/appointments/${encodeURIComponent(id)}/mark-paid`,
+          requestedPaymentStatus === "foc"
+            ? { paymentStatus: "foc" }
+            : undefined
+        )
+      }
+
+      return apiPatch(
+        `/api/booking/appointments/${encodeURIComponent(id)}`,
+        patch
+      )
+    },
     onSuccess: () => {
       setEditing(null)
       return queryClient.invalidateQueries({ queryKey: key })
     },
   })
+  const deleteAppointmentMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiDelete<{ deletedPatient?: boolean }>(
+        `/api/booking/appointments/${encodeURIComponent(id)}`
+      ),
+    onSuccess: (data) => {
+      setPendingDelete(null)
+      toast.success(
+        data.deletedPatient
+          ? "Appointment and patient record deleted"
+          : "Appointment deleted"
+      )
+      return queryClient.invalidateQueries({ queryKey: key })
+    },
+  })
   const requestError =
-    appointmentsQuery.error ?? markPaidMutation.error ?? saveEditMutation.error
+    appointmentsQuery.error ??
+    markPaidMutation.error ??
+    saveEditMutation.error ??
+    deleteAppointmentMutation.error
 
   function resetToFirstPage() {
     setPagination((current) => ({ ...current, pageIndex: 0 }))
@@ -113,27 +168,53 @@ export default function AppointmentsPage() {
     resetToFirstPage()
   }
 
+  async function refreshAppointments() {
+    setRefreshing(true)
+    try {
+      await queryClient.invalidateQueries({ queryKey: key })
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex gap-2">
-          {CLINICS.map((c) => (
-            <Button
-              key={c.id}
-              variant={clinic === c.id ? "default" : "outline"}
-              onClick={() => changeClinic(c.id)}
+        <div className="flex items-end gap-2 md:gap-3">
+          <div className="flex flex-col gap-1">
+            <NativeSelect
+              id="appointments-clinic"
+              value={clinic}
+              onChange={(event) =>
+                changeClinic(
+                  event.target.value === "bhagwanpur"
+                    ? "bhagwanpur"
+                    : "juran_chhapra"
+                )
+              }
             >
-              {c.label}
-            </Button>
-          ))}
+              {CLINICS.map((item) => (
+                <NativeSelectOption key={item.id} value={item.id}>
+                  {item.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+          <Input
+            type="date"
+            value={date}
+            onChange={(e) => changeDate(e.target.value)}
+            className="w-[8.5rem] md:w-auto"
+          />
+          <Button
+            variant="ghost"
+            onClick={() => void refreshAppointments()}
+            disabled={refreshing}
+          >
+            {refreshing ? "Loading…" : "Refresh"}
+          </Button>
         </div>
-        <Input
-          type="date"
-          value={date}
-          onChange={(e) => changeDate(e.target.value)}
-          className="w-auto"
-        />
         <div className="flex gap-2">
           <Input
             placeholder="Search name, mobile, PID, address…"
@@ -145,13 +226,6 @@ export default function AppointmentsPage() {
             className="w-44"
           />
         </div>
-        <Button
-          variant="ghost"
-          onClick={() => queryClient.invalidateQueries({ queryKey: key })}
-          disabled={appointmentsQuery.isFetching}
-        >
-          {appointmentsQuery.isFetching ? "Loading…" : "Refresh"}
-        </Button>
         <Button className="ml-auto" asChild>
           <Link to="/appointments/add">+ Add Appointment</Link>
         </Button>
@@ -182,10 +256,11 @@ export default function AppointmentsPage() {
           onMarkPaid={(id) => markPaidMutation.mutate(id)}
           payingId={
             markPaidMutation.isPending
-              ? markPaidMutation.variables ?? null
+              ? (markPaidMutation.variables ?? null)
               : null
           }
           onEdit={setEditing}
+          onDelete={setPendingDelete}
           pagination={pagination}
           onPaginationChange={setPagination}
         />
@@ -198,8 +273,31 @@ export default function AppointmentsPage() {
         onSave={(id, patch) => {
           if (id !== null) saveEditMutation.mutate({ id, patch })
         }}
+        onDelete={(id) => {
+          const appointment = rows.find((row) => row.id === id)
+          if (appointment) {
+            setEditing(null)
+            setPendingDelete(appointment)
+          }
+        }}
         saving={saveEditMutation.isPending}
+        deleting={deleteAppointmentMutation.isPending}
         mode="edit"
+      />
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title="Delete appointment?"
+        description={
+          pendingDelete
+            ? `Delete the appointment for ${pendingDelete.patientName}?`
+            : "Delete this appointment?"
+        }
+        confirmLabel="Delete appointment"
+        onConfirm={() => {
+          if (pendingDelete) deleteAppointmentMutation.mutate(pendingDelete.id)
+        }}
+        loading={deleteAppointmentMutation.isPending}
       />
     </div>
   )

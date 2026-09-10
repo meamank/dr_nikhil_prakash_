@@ -8,7 +8,6 @@ import {
   createSortedRowModel,
   FlexRender,
   rowPaginationFeature,
-  rowSelectionFeature,
   rowSortingFeature,
   tableFeatures,
   useTable,
@@ -21,7 +20,12 @@ import { Link } from "@tanstack/react-router"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -40,19 +44,17 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  CircleCheckIcon,
-  LoaderIcon,
   ChevronsLeftIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsRightIcon,
+  EllipsisVerticalIcon,
 } from "lucide-react"
 
 const features = tableFeatures({
   columnFilteringFeature,
   columnVisibilityFeature,
   rowPaginationFeature,
-  rowSelectionFeature,
   rowSortingFeature,
   filteredRowModel: createFilteredRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
@@ -85,6 +87,8 @@ export type AppointmentRow = z.infer<typeof schema>
 const STATUS_LABELS: Record<string, string> = {
   not_paid: "Not Paid",
   paid: "Paid",
+  foc: "FOC",
+  refunded: "Refunded",
   in_progress: "In Progress",
   done: "Done",
   cancelled: "Cancelled",
@@ -98,21 +102,30 @@ function statusBadge(status: string) {
     case "paid":
       return (
         <Badge className="bg-green-600 px-1.5 text-white hover:bg-green-600/90">
-          <CircleCheckIcon className="fill-white text-green-600" />
+          {label}
+        </Badge>
+      )
+    case "foc":
+      return (
+        <Badge className="bg-violet-600 px-1.5 text-white hover:bg-violet-600/90">
+          {label}
+        </Badge>
+      )
+    case "refunded":
+      return (
+        <Badge variant="secondary" className="px-1.5 text-muted-foreground">
           {label}
         </Badge>
       )
     case "done":
       return (
         <Badge className="bg-sky-500 px-1.5 text-white hover:bg-sky-500/90">
-          <CircleCheckIcon className="fill-white text-sky-500" />
           {label}
         </Badge>
       )
     case "in_progress":
       return (
         <Badge className="bg-yellow-500 px-1.5 text-white hover:bg-yellow-500/90">
-          <LoaderIcon />
           {label}
         </Badge>
       )
@@ -120,7 +133,6 @@ function statusBadge(status: string) {
     case "cancelled":
       return (
         <Badge variant="destructive" className="px-1.5">
-          <LoaderIcon />
           {label}
         </Badge>
       )
@@ -138,6 +150,7 @@ export function DataTable({
   onMarkPaid,
   payingId,
   onEdit,
+  onDelete,
   pagination: controlledPagination,
   onPaginationChange: onControlledPaginationChange,
 }: {
@@ -145,6 +158,7 @@ export function DataTable({
   onMarkPaid?: (id: string) => void
   payingId?: string | null
   onEdit?: (row: z.infer<typeof schema>) => void
+  onDelete?: (row: z.infer<typeof schema>) => void
   pagination?: { pageIndex: number; pageSize: number }
   onPaginationChange?: React.Dispatch<
     React.SetStateAction<{ pageIndex: number; pageSize: number }>
@@ -153,34 +167,6 @@ export function DataTable({
   const columns = React.useMemo(
     () =>
       columnHelper.columns([
-        columnHelper.display({
-          id: "select",
-          header: ({ table }) => (
-            <div className="flex items-center justify-center">
-              <Checkbox
-                checked={
-                  table.getIsAllPageRowsSelected() ||
-                  (table.getIsSomePageRowsSelected() && "indeterminate")
-                }
-                onCheckedChange={(value) =>
-                  table.toggleAllPageRowsSelected(!!value)
-                }
-                aria-label="Select all"
-              />
-            </div>
-          ),
-          cell: ({ row }) => (
-            <div className="flex items-center justify-center">
-              <Checkbox
-                checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(!!value)}
-                aria-label="Select row"
-              />
-            </div>
-          ),
-          enableSorting: false,
-          enableHiding: false,
-        }),
         columnHelper.accessor("queueNumber", {
           header: "SNo.",
           cell: ({ row }) => (
@@ -285,7 +271,6 @@ export function DataTable({
     [onMarkPaid, payingId, onEdit]
   )
 
-  const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] =
     React.useState<ColumnVisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -308,16 +293,11 @@ export function DataTable({
     state: {
       sorting,
       columnVisibility,
-      rowSelection,
       columnFilters,
       pagination,
     },
     getRowId: (row) => row.id,
-    // Refreshing after Edit/Mark Paid replaces the data array. Keep reception on
-    // the page they were working on instead of resetting to page 1.
     autoResetPageIndex: false,
-    enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -333,54 +313,74 @@ export function DataTable({
 
             return (
               <div key={row.id} className="rounded-lg border p-3">
-                <div className="flex items-start gap-3">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-md bg-muted text-base font-semibold tabular-nums">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-4 shrink-0 place-items-center rounded-xs bg-muted text-xs font-semibold tabular-nums">
                     {appointment.queueNumber}
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-1 items-baseline gap-2">
                     {appointment.patientPid ? (
                       <Link
                         to="/patients/$patientId"
                         params={{ patientId: appointment.patientPid }}
-                        className="block truncate text-sm font-medium hover:underline hover:underline-offset-4"
+                        className="w-24 shrink-0 truncate text-xs font-medium hover:underline hover:underline-offset-4"
                       >
                         {appointment.patientName.toUpperCase()}
                       </Link>
                     ) : (
-                      <p className="truncate text-sm font-medium">
+                      <p className="w-24 shrink-0 truncate text-xs font-medium">
                         {appointment.patientName.toUpperCase()}
                       </p>
                     )}
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                       {appointment.patientAddress?.toUpperCase() ||
-                        "Address not recorded"}
+                        "No Address"}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-start gap-1">
-                    {onEdit && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="px-2 text-xs"
-                        onClick={() => onEdit(appointment)}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                    {onMarkPaid &&
-                      !appointment.patientPid &&
-                      appointment.status !== "cancelled" && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    {appointment.status !== "not_paid"
+                      ? statusBadge(appointment.status)
+                      : onMarkPaid &&
+                        !appointment.patientPid && (
+                          <Button
+                            size="sm"
+                            className="px-2 text-xs"
+                            disabled={payingId === appointment.id}
+                            onClick={() => onMarkPaid(appointment.id)}
+                          >
+                            {payingId === appointment.id
+                              ? "Issuing…"
+                              : "Mark Paid"}
+                          </Button>
+                        )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
-                          size="sm"
-                          className="px-2 text-xs"
-                          disabled={payingId === appointment.id}
-                          onClick={() => onMarkPaid(appointment.id)}
+                          size="icon"
+                          variant="ghost"
+                          className="size-8"
+                          aria-label={`Actions for ${appointment.patientName}`}
                         >
-                          {payingId === appointment.id
-                            ? "Issuing…"
-                            : "Mark Paid"}
+                          <EllipsisVerticalIcon />
                         </Button>
-                      )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        {onEdit && (
+                          <DropdownMenuItem
+                            onSelect={() => onEdit(appointment)}
+                          >
+                            Edit appointment
+                          </DropdownMenuItem>
+                        )}
+                        {onDelete && (
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onSelect={() => onDelete(appointment)}
+                          >
+                            Delete appointment
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </div>
@@ -411,10 +411,7 @@ export function DataTable({
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
+                <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       <FlexRender cell={cell} />
@@ -437,10 +434,7 @@ export function DataTable({
       </div>
 
       <div className="flex items-center justify-between px-4">
-        <div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-          {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
-        </div>
+        <div className="hidden flex-1 lg:flex" />
         <div className="flex w-full items-center gap-8 lg:w-fit">
           <div className="hidden items-center gap-2 lg:flex">
             <Label htmlFor="rows-per-page" className="text-sm font-medium">
@@ -488,7 +482,7 @@ export function DataTable({
               disabled={!table.getCanPreviousPage()}
             >
               <span className="sr-only">Go to previous page</span>
-              <ChevronLeftIcon />
+              <ChevronLeftIcon className="size-6 sm:size-4" />
             </Button>
             <Button
               variant="outline"
@@ -498,7 +492,7 @@ export function DataTable({
               disabled={!table.getCanNextPage()}
             >
               <span className="sr-only">Go to next page</span>
-              <ChevronRightIcon />
+              <ChevronRightIcon className="size-6 sm:size-4" />
             </Button>
             <Button
               variant="outline"

@@ -1,9 +1,6 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 
 export type Clinic = "juran_chhapra" | "bhagwanpur"
 
@@ -31,6 +28,11 @@ export function AppointmentDetailsFields({
   ) => void
   autoFocus?: boolean
 }) {
+  const shouldAutoFocus =
+    autoFocus &&
+    typeof window !== "undefined" &&
+    window.matchMedia("(min-width: 768px)").matches
+
   return (
     <>
       <div className="grid grid-cols-2 gap-4 md:col-span-2">
@@ -76,7 +78,15 @@ export function AppointmentDetailsFields({
           value={values.name}
           onChange={(event) => onChange("name", event.target.value)}
           required
-          autoFocus={autoFocus}
+          autoFocus={shouldAutoFocus}
+        />
+      </div>
+      <div className="flex flex-col gap-2 md:col-span-2">
+        <Label htmlFor={`${idPrefix}-address`}>Address</Label>
+        <Input
+          id={`${idPrefix}-address`}
+          value={values.address}
+          onChange={(event) => onChange("address", event.target.value)}
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -89,14 +99,7 @@ export function AppointmentDetailsFields({
           required
         />
       </div>
-      <div className="flex flex-col gap-2 md:col-span-2">
-        <Label htmlFor={`${idPrefix}-address`}>Address</Label>
-        <Input
-          id={`${idPrefix}-address`}
-          value={values.address}
-          onChange={(event) => onChange("address", event.target.value)}
-        />
-      </div>
+
       <div className="flex flex-col gap-2">
         <Label htmlFor={`${idPrefix}-age`}>Age</Label>
         <Input

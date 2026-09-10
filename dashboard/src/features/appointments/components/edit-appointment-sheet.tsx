@@ -1,10 +1,7 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import {
   Sheet,
   SheetContent,
@@ -33,6 +30,8 @@ export type AppointmentPatch = {
 const STATUSES = [
   "not_paid",
   "paid",
+  "foc",
+  "refunded",
   "in_progress",
   "done",
   "cancelled",
@@ -42,6 +41,8 @@ const STATUSES = [
 const STATUS_LABELS: Record<string, string> = {
   not_paid: "Not Paid",
   paid: "Paid",
+  foc: "FOC (Free of cost)",
+  refunded: "Refunded",
   in_progress: "In Progress",
   done: "Done",
   cancelled: "Cancelled",
@@ -61,14 +62,18 @@ export function EditAppointmentSheet({
   open,
   onOpenChange,
   onSave,
+  onDelete,
   saving,
+  deleting = false,
   mode = "edit",
 }: {
   appointment: AppointmentRow | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (id: string | null, patch: AppointmentPatch) => void
+  onDelete?: (id: string) => void
   saving: boolean
+  deleting?: boolean
   mode?: "edit" | "create"
 }) {
   const [name, setName] = React.useState("")
@@ -200,7 +205,7 @@ export function EditAppointmentSheet({
               >
                 {STATUSES.map((s) => (
                   <NativeSelectOption key={s} value={s}>
-                      {STATUS_LABELS[s]}
+                    {STATUS_LABELS[s]}
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
@@ -214,7 +219,17 @@ export function EditAppointmentSheet({
             </div>
           )}
           <SheetFooter className="md:col-span-2">
-            <Button type="submit" disabled={saving}>
+            {mode === "edit" && appointment && onDelete && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => onDelete(appointment.id)}
+                disabled={saving || deleting}
+              >
+                Delete appointment
+              </Button>
+            )}
+            <Button type="submit" disabled={saving || deleting}>
               {saving
                 ? mode === "create"
                   ? "Booking…"

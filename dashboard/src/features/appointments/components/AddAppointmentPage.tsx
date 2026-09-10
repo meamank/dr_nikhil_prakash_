@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { apiPost } from "@/lib/api"
 import {
   AppointmentDetailsFields,
@@ -25,6 +26,7 @@ export default function AddAppointmentPage() {
   const [gender, setGender] = useState("")
   const [clinic, setClinic] = useState<Clinic>("juran_chhapra")
   const [date, setDate] = useState(todayIST())
+  const [status, setStatus] = useState<"not_paid" | "paid" | "foc">("not_paid")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -72,16 +74,31 @@ export default function AddAppointmentPage() {
     setSaving(true)
     setError(null)
     try {
-      await apiPost("/api/booking/appointments", {
-        patientName: name.trim(),
-        address: address.trim() || null,
-        mobile: mobile.trim(),
-        patientAgeYears: age.trim() === "" ? null : Number(age),
-        patientGender: gender || null,
-        clinic,
-        date,
-      })
-      toast.success("Appointment added")
+      const appointment = await apiPost<{ appointmentId: string }>(
+        "/api/booking/appointments",
+        {
+          patientName: name.trim(),
+          address: address.trim() || null,
+          mobile: mobile.trim(),
+          patientAgeYears: age.trim() === "" ? null : Number(age),
+          patientGender: gender || null,
+          clinic,
+          date,
+        }
+      )
+      if (status === "paid" || status === "foc") {
+        const payment = await apiPost<{ pid: string }>(
+          `/api/booking/appointments/${encodeURIComponent(appointment.appointmentId)}/mark-paid`,
+          status === "foc" ? { paymentStatus: "foc" } : undefined
+        )
+        toast.success(
+          status === "foc"
+            ? `FOC appointment added and ${payment.pid} issued`
+            : `Appointment added and ${payment.pid} issued`
+        )
+      } else {
+        toast.success("Appointment added")
+      }
       navigate({ to: "/appointments" })
     } catch (e) {
       const message =
@@ -95,16 +112,13 @@ export default function AddAppointmentPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
         <div>
           <h1 className="text-lg font-semibold">Add appointment</h1>
           <p className="text-sm text-muted-foreground">
             Book a slot for a walk-in or phone patient.
           </p>
         </div>
-        <Button variant="outline" asChild>
-          <Link to="/appointments">Back to appointments</Link>
-        </Button>
       </div>
 
       {error && (
@@ -129,10 +143,29 @@ export default function AddAppointmentPage() {
               autoFocus
             />
             <div className="flex flex-col gap-2 md:col-span-2">
-              <Label>Status</Label>
-              <p className="text-sm text-muted-foreground">
-                New appointments are recorded as Not Paid.
-              </p>
+              <Label htmlFor="add-appointment-status">Status</Label>
+              <NativeSelect
+                id="add-appointment-status"
+                className="w-full"
+                value={status}
+                onChange={(event) =>
+                  setStatus(
+                    event.target.value === "paid"
+                      ? "paid"
+                      : event.target.value === "foc"
+                        ? "foc"
+                        : "not_paid"
+                  )
+                }
+              >
+                <NativeSelectOption value="not_paid">
+                  Not Paid
+                </NativeSelectOption>
+                <NativeSelectOption value="paid">Paid</NativeSelectOption>
+                <NativeSelectOption value="foc">
+                  FOC (Free of cost)
+                </NativeSelectOption>
+              </NativeSelect>
             </div>
             <div className="flex justify-end gap-2 md:col-span-2">
               <Button type="button" variant="outline" asChild disabled={saving}>

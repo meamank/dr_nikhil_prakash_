@@ -166,6 +166,13 @@ export const appointments = sqliteTable("appointments", {
   patientPid: text("patient_pid").references(() => patients.pid, {
     onDelete: "cascade",
   }),
+  // How the current/most-recent paid PID was assigned. This lets us safely
+  // clean up a never-used system-created patient without touching linked or
+  // historical patient records.
+  patientPidOrigin: text("patient_pid_origin", {
+    enum: ["created", "linked"],
+  }),
+  paymentPatientPid: text("payment_patient_pid"),
   // Snapshot of who the slot is for (entered at booking time).
   // Single mobile field — the patient's number. Editable via PATCH.
   patientName: text("patient_name").notNull(),
@@ -189,6 +196,8 @@ export const appointments = sqliteTable("appointments", {
     enum: [
       "not_paid",
       "paid",
+      "foc",
+      "refunded",
       "in_progress",
       "done",
       "cancelled",
@@ -197,7 +206,9 @@ export const appointments = sqliteTable("appointments", {
   })
     .notNull()
     .default("not_paid"),
-  paymentStatus: text("payment_status", { enum: ["unpaid", "paid"] })
+  paymentStatus: text("payment_status", {
+    enum: ["unpaid", "paid", "foc", "refunded"],
+  })
     .notNull()
     .default("unpaid"),
   paymentMode: text("payment_mode", { enum: ["cash", "upi"] }),
