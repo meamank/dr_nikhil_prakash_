@@ -14,6 +14,7 @@ import { apiPost } from "@/lib/api"
 type StaffRole = "staff" | "admin"
 
 export default function SettingsPage() {
+  const [fullName, setFullName] = useState("")
   const [username, setUsername] = useState("")
   const [mobile, setMobile] = useState("")
   const [role, setRole] = useState<StaffRole>("staff")
@@ -33,9 +34,10 @@ export default function SettingsPage() {
     setCreated(null)
     try {
       const data = await apiPost<{
-        staff: { id: string; username: string; role: StaffRole }
-      }>("/api/staff", { username, mobile, role, password })
+        staff: { id: string; fullName: string; username: string; role: StaffRole }
+      }>("/api/staff", { fullName, username, mobile, role, password })
       setCreated(data.staff)
+      setFullName("")
       setUsername("")
       setMobile("")
       setPassword("")
@@ -64,6 +66,17 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2 sm:col-span-2">
+              <Label htmlFor="staff-full-name">Full name</Label>
+              <Input
+                id="staff-full-name"
+                value={fullName}
+                onChange={(event) => setFullName(event.target.value)}
+                placeholder="e.g. Priya Kumari"
+                autoFocus
+                required
+              />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="staff-username">Username</Label>
               <Input
@@ -71,7 +84,6 @@ export default function SettingsPage() {
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder="e.g. reception_1"
-                autoFocus
                 required
               />
             </div>

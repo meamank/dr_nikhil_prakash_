@@ -21,6 +21,7 @@ staff.use("*", async (c, next) => {
 staff.post("/", async (c) => {
   const body = await c.req
     .json<{
+      fullName?: string
       username?: string
       mobile?: string
       role?: "staff" | "admin"
@@ -29,10 +30,14 @@ staff.post("/", async (c) => {
     .catch(() => null)
   if (!body) return c.json({ error: "Invalid body" }, 400)
 
+  const fullName = body.fullName?.trim().replace(/\s+/g, " ") ?? ""
   const username = body.username?.trim().toLowerCase() ?? ""
   const mobile = normalizePhone(body.mobile ?? "")
   const role = body.role
   const password = body.password ?? ""
+  if (fullName.length < 2 || fullName.length > 100) {
+    return c.json({ error: "Enter the staff member's full name" }, 400)
+  }
   if (!/^[a-z0-9_]{3,32}$/.test(username)) {
     return c.json({ error: "Username must be 3–32 letters, numbers, or underscores" }, 400)
   }
@@ -58,7 +63,7 @@ staff.post("/", async (c) => {
     const auth = createAuth(c.env)
     const result = await auth.api.signUpEmail({
       body: {
-        name: username,
+        name: fullName,
         email: username + "@staff.local",
         password,
         username,
@@ -72,6 +77,7 @@ staff.post("/", async (c) => {
     return c.json({
       staff: {
         id: result.user.id,
+        fullName,
         username,
         mobile,
         role,
