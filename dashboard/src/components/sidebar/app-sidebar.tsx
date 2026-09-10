@@ -76,7 +76,7 @@ function NavItem({ title, url, icon: Icon, onNavigate }: NavItemProps) {
       <SidebarMenuButton
         asChild
         tooltip={title}
-        className="gap-4.5"
+        className="gap-4.5 py-5"
         isActive={isActive}
       >
         <Link
@@ -89,7 +89,7 @@ function NavItem({ title, url, icon: Icon, onNavigate }: NavItemProps) {
           onClick={onNavigate}
         >
           <Icon />
-          <span>{title}</span>
+          <span className="text-base sm:text-sm">{title}</span>
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -136,7 +136,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <SidebarGroup className="pt-0">
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-2">
               {navBar.map((item) => (
                 <NavItem
                   key={item.title}

@@ -6,10 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { formatClinicalInput } from "@/lib/clinical-input"
 import { IbsAssessmentForm } from "./assessments/IbsAssessmentForm"
 import { LabReportsInput, type LabReport } from "./LabReportsInput"
@@ -69,7 +74,10 @@ const ibsCheckboxLabels: { key: keyof IbsAssessment; label: string }[] = [
   { key: "lowMoodOrDepression", label: "Low mood or depression" },
 ]
 
-const bristolLabels: Record<Exclude<IbsAssessment["bristolStoolType"], "">, string> = {
+const bristolLabels: Record<
+  Exclude<IbsAssessment["bristolStoolType"], "">,
+  string
+> = {
   "1": "Bristol 1: Separate hard lumps",
   "2": "Bristol 2: Sausage-shaped but lumpy",
   "3": "Bristol 3: Sausage with cracks",
@@ -81,16 +89,25 @@ const bristolLabels: Record<Exclude<IbsAssessment["bristolStoolType"], "">, stri
 
 function t2dmSummary(value: T2dmAssessment): string[] {
   const entries: string[] = []
-  if (value.symptomsDuration) entries.push(`Duration of symptoms: ${value.symptomsDuration}`)
-  const checkedLabels: Array<[Exclude<keyof T2dmAssessment, "symptomsDuration">, string]> = [
-    ["polyuria", "Polyuria"], ["polydipsia", "Polydipsia"],
-    ["polyphagia", "Polyphagia"], ["unexplainedWeightLoss", "Weight loss"],
-    ["blurredVision", "Blurred vision"], ["fatigueOrLethargy", "Fatigue / lethargy"],
-    ["age35OrOlder", "Age ≥35 years"], ["overweightOrObese", "Overweight or obese"],
+  if (value.symptomsDuration)
+    entries.push(`Duration of symptoms: ${value.symptomsDuration}`)
+  const checkedLabels: Array<
+    [Exclude<keyof T2dmAssessment, "symptomsDuration">, string]
+  > = [
+    ["polyuria", "Polyuria"],
+    ["polydipsia", "Polydipsia"],
+    ["polyphagia", "Polyphagia"],
+    ["unexplainedWeightLoss", "Weight loss"],
+    ["blurredVision", "Blurred vision"],
+    ["fatigueOrLethargy", "Fatigue / lethargy"],
+    ["age35OrOlder", "Age ≥35 years"],
+    ["overweightOrObese", "Overweight or obese"],
     ["highRiskEthnicity", "High-risk race/ethnicity"],
     ["firstDegreeRelative", "First-degree relative with diabetes"],
-    ["historyOfCvd", "History of CVD"], ["hypertension", "Hypertension"],
-    ["historyOfGdm", "History of GDM"], ["pcos", "PCOS"],
+    ["historyOfCvd", "History of CVD"],
+    ["hypertension", "Hypertension"],
+    ["historyOfGdm", "History of GDM"],
+    ["pcos", "PCOS"],
     ["physicalInactivity", "Physical inactivity"],
     ["fruityBreathOdor", "Fruity breath odor"],
     ["kussmaulRespirations", "Kussmaul respirations"],
@@ -101,7 +118,9 @@ function t2dmSummary(value: T2dmAssessment): string[] {
     ["visionChangesOrFloaters", "Vision changes / floaters"],
     ["exertionalChestPainOrSob", "Exertional chest pain / SOB"],
   ]
-  entries.push(...checkedLabels.filter(([key]) => value[key]).map(([, label]) => label))
+  entries.push(
+    ...checkedLabels.filter(([key]) => value[key]).map(([, label]) => label)
+  )
   return entries
 }
 
@@ -109,7 +128,8 @@ function ibsSummary(value: IbsAssessment): string[] {
   const entries = ibsCheckboxLabels
     .filter(({ key }) => value[key] === true)
     .map(({ label }) => label)
-  if (value.bristolStoolType) entries.push(bristolLabels[value.bristolStoolType])
+  if (value.bristolStoolType)
+    entries.push(bristolLabels[value.bristolStoolType])
   if (value.subtype) entries.push(`Subtype: ${value.subtype}`)
   const scores: Array<[string, number]> = [
     ["Pain severity", value.painSeverity],
@@ -165,6 +185,178 @@ export type VisitData = {
 
 export type VisitValues = Omit<VisitData, "id" | "label" | "status">
 
+function displayDate(date: string): string {
+  const [year, month, day] = date.split("-")
+  return year && month && day ? `${day}-${month}-${year}` : date
+}
+
+function VisitItemsTable({ title, items }: { title: string; items: string[] }) {
+  return (
+    <section className="grid gap-2">
+      <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
+        {title}
+      </h3>
+      {items.length ? (
+        <Table containerClassName="subtle-scrollbar">
+          <TableBody>
+            <TableRow>
+              <TableCell className="whitespace-normal">
+                <ul className="grid gap-0.5">
+                  {items.map((item, index) => (
+                    <li
+                      key={`${item}-${index}`}
+                      className="text-xs wrap-break-word"
+                    >
+                      · {formatClinicalText(item)}
+                    </li>
+                  ))}
+                </ul>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      ) : (
+        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
+      )}
+    </section>
+  )
+}
+
+function VisitVitalsTable({ visit }: { visit: VisitData }) {
+  const vitals = [
+    ["BP", visit.bloodPressure || "—"],
+    ["Weight", visit.weight || "—"],
+    [
+      "Chest/Heart Sound",
+      visit.chestHeartSound === "Other"
+        ? visit.otherChestHeartSound || "OTHER"
+        : formatClinicalText(visit.chestHeartSound),
+    ],
+  ]
+
+  return (
+    <section className="grid gap-2">
+      <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
+        Vitals
+      </h3>
+      <Table containerClassName="subtle-scrollbar">
+        <TableBody>
+          {vitals.map(([label, value]) => (
+            <TableRow key={label}>
+              <TableCell className="w-24 min-w-24 text-xs font-semibold wrap-break-word whitespace-normal">
+                {label}
+              </TableCell>
+              <TableCell className="w-24 min-w-24 text-xs wrap-break-word whitespace-normal">
+                {value}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </section>
+  )
+}
+
+function VisitTestReportsTable({ visit }: { visit: VisitData }) {
+  const dates = [
+    ...new Set(visit.labReports.map((report) => report.reportDate)),
+  ].sort((a, b) => b.localeCompare(a))
+  const tests = Array.from(
+    new Map(
+      visit.labReports.map((report) => [
+        report.test.trim().toLocaleLowerCase(),
+        report.test,
+      ])
+    ).entries()
+  )
+
+  return (
+    <section className="grid gap-2">
+      <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
+        Test reports
+      </h3>
+      {visit.labReports.length ? (
+        <Table containerClassName="subtle-scrollbar">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-24 min-w-24" />
+              {dates.map((date) => (
+                <TableHead
+                  key={date}
+                  className="w-24 min-w-24 text-xs font-semibold tabular-nums"
+                >
+                  {displayDate(date)}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tests.map(([testKey, testName]) => (
+              <TableRow key={testKey}>
+                <TableCell className="w-24 min-w-24 text-xs font-semibold wrap-break-word whitespace-normal">
+                  {formatClinicalText(testName)}
+                </TableCell>
+                {dates.map((date) => {
+                  const results = visit.labReports
+                    .filter(
+                      (report) =>
+                        report.reportDate === date &&
+                        report.test.trim().toLocaleLowerCase() === testKey
+                    )
+                    .map((report) => formatClinicalText(report.result))
+                  return (
+                    <TableCell
+                      key={date}
+                      className="w-24 min-w-24 text-xs wrap-break-word whitespace-pre-line"
+                    >
+                      {results.join("\n")}
+                    </TableCell>
+                  )
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
+      )}
+    </section>
+  )
+}
+
+function VisitMedicinesTable({ visit }: { visit: VisitData }) {
+  return (
+    <section className="grid gap-2">
+      {visit.medicinesPrescribed.length ? (
+        <Table containerClassName="subtle-scrollbar">
+          <TableBody>
+            {visit.medicinesPrescribed.map((medicine, index) => (
+              <TableRow key={`${medicine.name}-${index}`}>
+                <TableCell className="min-w-40 text-xs font-semibold wrap-break-word whitespace-normal">
+                  {formatClinicalText(medicine.name)}
+                  {medicine.notes && (
+                    <p className="mt-0.5 font-mono text-xs font-normal wrap-break-word text-muted-foreground">
+                      Notes: {formatClinicalText(medicine.notes)}
+                    </p>
+                  )}
+                </TableCell>
+                <TableCell className="w-20 min-w-20 text-xs">
+                  {medicine.frequency}
+                </TableCell>
+                <TableCell className="w-20 min-w-20 text-xs">
+                  {medicine.duration}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <p className="text-sm text-muted-foreground">NO MEDICINES RECORDED</p>
+      )}
+    </section>
+  )
+}
+
 function getVisitValues(visit: VisitData): VisitValues {
   return {
     visitDate: visit.visitDate,
@@ -173,7 +365,8 @@ function getVisitValues(visit: VisitData): VisitValues {
     chestHeartSound: visit.chestHeartSound,
     otherChestHeartSound: formatClinicalText(visit.otherChestHeartSound),
     chiefComplaint: visit.chiefComplaint.map(formatClinicalText),
-    previousMedicalHistory: visit.previousMedicalHistory.map(formatClinicalText),
+    previousMedicalHistory:
+      visit.previousMedicalHistory.map(formatClinicalText),
     diagnosis: visit.diagnosis.map(formatClinicalText),
     labReports: visit.labReports.map((report) => ({
       test: formatClinicalText(report.test),
@@ -193,7 +386,10 @@ function getVisitValues(visit: VisitData): VisitValues {
 }
 
 function hasT2dmAnswers(value: T2dmAssessment): boolean {
-  return value.symptomsDuration !== "" || Object.values(value).some((field) => field === true)
+  return (
+    value.symptomsDuration !== "" ||
+    Object.values(value).some((field) => field === true)
+  )
 }
 
 function hasIbsAnswers(value: IbsAssessment): boolean {
@@ -221,7 +417,9 @@ export function VisitForm({
   const [pendingOptionCount, setPendingOptionCount] = useState(0)
   const [confirmRemoveT2dm, setConfirmRemoveT2dm] = useState(false)
   const [confirmRemoveIbs, setConfirmRemoveIbs] = useState(false)
-  const [pendingAssessment, setPendingAssessment] = useState<"t2dm" | "ibs" | null>(null)
+  const [pendingAssessment, setPendingAssessment] = useState<
+    "t2dm" | "ibs" | null
+  >(null)
   const [isEditing, setIsEditing] = useState(visit.status === "draft")
   const [draft, setDraft] = useState<VisitValues>(() => getVisitValues(visit))
   const [savingVisit, setSavingVisit] = useState(false)
@@ -252,7 +450,10 @@ export function VisitForm({
     const existingHasAnswers =
       (draft.t2dmAssessment && hasT2dmAnswers(draft.t2dmAssessment)) ||
       (draft.ibsAssessment && hasIbsAnswers(draft.ibsAssessment))
-    if ((next === "t2dm" && draft.ibsAssessment) || (next === "ibs" && draft.t2dmAssessment)) {
+    if (
+      (next === "t2dm" && draft.ibsAssessment) ||
+      (next === "ibs" && draft.t2dmAssessment)
+    ) {
       if (existingHasAnswers) {
         setPendingAssessment(next)
       } else {
@@ -293,7 +494,9 @@ export function VisitForm({
       await onSave(valuesToSave)
       setIsEditing(false)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Couldn’t save visit.")
+      setSaveError(
+        error instanceof Error ? error.message : "Couldn’t save visit."
+      )
     } finally {
       setSavingVisit(false)
     }
@@ -310,108 +513,73 @@ export function VisitForm({
 
   if (!isEditing) {
     return (
-      <Card>
-        <CardContent className="grid gap-4">
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-1">
-              <dt className="text-sm text-muted-foreground">Visit date</dt>
-              <dd className="text-sm font-medium">{visit.label}</dd>
+      <div className="grid gap-4">
+        <Card className="gap-0 overflow-hidden py-0">
+          <CardContent className="flex items-center justify-between gap-3 p-4">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase">
+                Visit date
+              </p>
+              <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
+                {displayDate(visit.visitDate)}
+              </p>
             </div>
-            <div className="grid gap-1">
-              <dt className="text-sm text-muted-foreground">Blood pressure</dt>
-              <dd className="text-sm font-medium">
-                {formatClinicalText(visit.bloodPressure) || "—"}
-              </dd>
-            </div>
-            <div className="grid gap-1">
-              <dt className="text-sm text-muted-foreground">Weight</dt>
-              <dd className="text-sm font-medium">
-                {formatClinicalText(visit.weight) || "—"}
-              </dd>
-            </div>
-            <div className="grid gap-1 sm:col-span-2">
-              <dt className="text-sm text-muted-foreground">Chest/Heart Sound</dt>
-              <dd className="text-sm font-medium break-words whitespace-pre-wrap">
-                {visit.chestHeartSound === "Other"
-                  ? formatClinicalText(visit.otherChestHeartSound) || "OTHER"
-                  : formatClinicalText(visit.chestHeartSound)}
-              </dd>
-            </div>
-            {clinicalOptionFields.map(({ key, label }) => (
-              <div key={key} className="grid min-w-0 gap-1 sm:col-span-2">
-                <dt className="text-sm text-muted-foreground">{label}</dt>
-                <dd className="text-sm font-medium break-words">
-                  {visit[key].map(formatClinicalText).join(", ") || "—"}
-                </dd>
-              </div>
-            ))}
-            <div className="grid min-w-0 gap-1 sm:col-span-2">
-              <dt className="text-sm text-muted-foreground">Lab reports</dt>
-              <dd className="text-sm font-medium break-words">
-                {visit.labReports
-                  .map(
-                    (report) =>
-                      `${formatClinicalText(report.test)} · ${formatClinicalText(report.result)} · ${report.reportDate}`
-                  )
-                  .join(", ") || "—"}
-              </dd>
-            </div>
-            <div className="grid min-w-0 gap-1 sm:col-span-2">
-              <dt className="text-sm text-muted-foreground">Medicines prescribed</dt>
-              <dd className="text-sm font-medium break-words">
-                {visit.medicinesPrescribed
-                  .map(
-                    (medicine) =>
-                      `${formatClinicalText(medicine.name)} · ${medicine.frequency} · ${formatClinicalText(medicine.duration)}${medicine.notes ? ` · ${formatClinicalText(medicine.notes)}` : ""}`
-                  )
-                  .join(", ") || "—"}
-              </dd>
-            </div>
-            <div className="grid min-w-0 gap-1 sm:col-span-2">
-              <dt className="text-sm text-muted-foreground">Diagnosis</dt>
-              <dd className="text-sm font-medium break-words">
-                {displayDiagnoses(visit).map(formatClinicalText).join(", ") ||
-                  "NO DIAGNOSIS"}
-              </dd>
-            </div>
-            <div className="grid min-w-0 gap-1 sm:col-span-2">
-              <dt className="text-sm text-muted-foreground">Remarks</dt>
-              <dd className="text-sm font-medium break-words">
-                {formatClinicalText(visit.remarks) || "—"}
-              </dd>
-            </div>
-            {visit.t2dmAssessment && t2dmSummary(visit.t2dmAssessment).length > 0 && (
-              <div className="grid min-w-0 gap-1 sm:col-span-2">
-                <dt className="text-sm text-muted-foreground">T2DM assessment</dt>
-                <dd className="text-sm font-medium">
-                  <ul className="grid gap-1">
-                    {t2dmSummary(visit.t2dmAssessment).map((entry) => (
-                      <li key={entry}>{entry}</li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
-            )}
-            {visit.ibsAssessment && ibsSummary(visit.ibsAssessment).length > 0 && (
-              <div className="grid min-w-0 gap-1 sm:col-span-2">
-                <dt className="text-sm text-muted-foreground">IBS assessment</dt>
-                <dd className="text-sm font-medium">
-                  <ul className="grid gap-1">
-                    {ibsSummary(visit.ibsAssessment).map((entry) => (
-                      <li key={entry}>{entry}</li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
-            )}
-          </dl>
-          <div>
-            <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditing(true)}
+            >
               Edit
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="grid gap-8 py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+            <div className="grid content-start gap-6">
+              <VisitItemsTable
+                title="Previous medical history"
+                items={visit.previousMedicalHistory}
+              />
+              <VisitItemsTable
+                title="Chief complaints"
+                items={visit.chiefComplaint}
+              />
+              <VisitVitalsTable visit={visit} />
+              <VisitTestReportsTable visit={visit} />
+              <VisitItemsTable
+                title="Diagnosis"
+                items={displayDiagnoses(visit)}
+              />
+              <VisitItemsTable
+                title="Clinical remarks"
+                items={visit.remarks.trim() ? [visit.remarks] : []}
+              />
+              {visit.t2dmAssessment &&
+                t2dmSummary(visit.t2dmAssessment).length > 0 && (
+                  <VisitItemsTable
+                    title="T2DM assessment"
+                    items={t2dmSummary(visit.t2dmAssessment)}
+                  />
+                )}
+              {visit.ibsAssessment &&
+                ibsSummary(visit.ibsAssessment).length > 0 && (
+                  <VisitItemsTable
+                    title="IBS assessment"
+                    items={ibsSummary(visit.ibsAssessment)}
+                  />
+                )}
+            </div>
+
+            <section className="grid content-start gap-3 lg:border-l lg:pl-8">
+              <h3 className="font-heading text-sm font-semibold tracking-wide text-primary uppercase">
+                Prescribed medicines
+              </h3>
+              <VisitMedicinesTable visit={visit} />
+            </section>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -466,7 +634,9 @@ export function VisitForm({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor={`${visit.id}-chest-heart-sound`}>Chest/Heart Sound</Label>
+            <Label htmlFor={`${visit.id}-chest-heart-sound`}>
+              Chest/Heart Sound
+            </Label>
             <NativeSelect
               id={`${visit.id}-chest-heart-sound`}
               className="w-full"
@@ -475,7 +645,8 @@ export function VisitForm({
                 const sound = soundOptions.find(
                   (option) => option === event.target.value
                 )
-                if (sound) setDraft((prev) => ({ ...prev, chestHeartSound: sound }))
+                if (sound)
+                  setDraft((prev) => ({ ...prev, chestHeartSound: sound }))
               }}
             >
               {soundOptions.map((sound) => (
@@ -487,13 +658,17 @@ export function VisitForm({
           </div>
           {draft.chestHeartSound === "Other" && (
             <div className="grid gap-2">
-              <Label htmlFor={`${visit.id}-other-sound`}>Other chest/heart sound</Label>
+              <Label htmlFor={`${visit.id}-other-sound`}>
+                Other chest/heart sound
+              </Label>
               <Input
                 id={`${visit.id}-other-sound`}
                 placeholder="Describe the chest/heart sound"
                 value={draft.otherChestHeartSound}
                 onChange={(event) => {
-                  const otherChestHeartSound = formatClinicalInput(event.currentTarget)
+                  const otherChestHeartSound = formatClinicalInput(
+                    event.currentTarget
+                  )
                   setDraft((prev) => ({ ...prev, otherChestHeartSound }))
                 }}
               />
@@ -506,7 +681,9 @@ export function VisitForm({
                   id={`${visit.id}-${key}`}
                   label={label}
                   value={draft[key]}
-                  onChange={(options) => setDraft((prev) => ({ ...prev, [key]: options }))}
+                  onChange={(options) =>
+                    setDraft((prev) => ({ ...prev, [key]: options }))
+                  }
                   onPendingChange={handlePendingChange}
                   endpoint={endpoint}
                   placeholder={placeholder}
@@ -519,7 +696,9 @@ export function VisitForm({
           <LabReportsInput
             id={`${visit.id}-lab-reports`}
             value={draft.labReports}
-            onChange={(labReports) => setDraft((prev) => ({ ...prev, labReports }))}
+            onChange={(labReports) =>
+              setDraft((prev) => ({ ...prev, labReports }))
+            }
             onPendingChange={handlePendingChange}
           />
           <MedicinesInput
@@ -535,7 +714,9 @@ export function VisitForm({
               id={`${visit.id}-diagnosis`}
               label="Diagnosis"
               value={draft.diagnosis}
-              onChange={(diagnosis) => setDraft((prev) => ({ ...prev, diagnosis }))}
+              onChange={(diagnosis) =>
+                setDraft((prev) => ({ ...prev, diagnosis }))
+              }
               onPendingChange={handlePendingChange}
               endpoint={diagnosisField.endpoint}
               placeholder="No diagnosis"
@@ -544,7 +725,9 @@ export function VisitForm({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor={`${visit.id}-assessment-form`}>Add disease assessment</Label>
+            <Label htmlFor={`${visit.id}-assessment-form`}>
+              Add disease assessment
+            </Label>
             <NativeSelect
               id={`${visit.id}-assessment-form`}
               value=""
@@ -554,7 +737,10 @@ export function VisitForm({
               }}
             >
               <NativeSelectOption value="">Select a form</NativeSelectOption>
-              <NativeSelectOption value="t2dm" disabled={!!draft.t2dmAssessment}>
+              <NativeSelectOption
+                value="t2dm"
+                disabled={!!draft.t2dmAssessment}
+              >
                 T2DM assessment
               </NativeSelectOption>
               <NativeSelectOption value="ibs" disabled={!!draft.ibsAssessment}>
@@ -580,7 +766,10 @@ export function VisitForm({
               value={draft.t2dmAssessment}
               onChange={updateT2dmAssessment}
               onRemove={() => {
-                if (draft.t2dmAssessment && hasT2dmAnswers(draft.t2dmAssessment)) {
+                if (
+                  draft.t2dmAssessment &&
+                  hasT2dmAnswers(draft.t2dmAssessment)
+                ) {
                   setConfirmRemoveT2dm(true)
                 } else {
                   setDraft((prev) => ({ ...prev, t2dmAssessment: null }))

@@ -7,7 +7,14 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
 import { Separator } from "@/components/ui/separator"
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import type { VisitData } from "./VisitForm"
 
 type TrendPoint = {
@@ -38,16 +45,6 @@ function displayDate(date: string): string {
 function shortDate(date: string): string {
   const [, month, day] = date.split("-")
   return month && day ? `${day}/${month}` : date
-}
-
-function unique(values: string[]): string[] {
-  const seen = new Set<string>()
-  return values.filter((value) => {
-    const normalized = value.trim().toLocaleUpperCase()
-    if (!normalized || seen.has(normalized)) return false
-    seen.add(normalized)
-    return true
-  })
 }
 
 function numericValue(value: string): number | null {
@@ -136,32 +133,6 @@ function buildTrends(visits: VisitData[]): Trend[] {
   return result
 }
 
-function ClinicalSection({ title, items }: { title: string; items: string[] }) {
-  return (
-    <section className="grid gap-2">
-      <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
-        {title}
-      </h3>
-      {items.length ? (
-        <ul className="grid gap-1.5 text-sm">
-          {items.map((item) => (
-            <li key={item} className="flex gap-2 leading-5">
-              <span aria-hidden="true" className="text-muted-foreground">
-                •
-              </span>
-              <span className="min-w-0 wrap-break-word">
-                {formatClinicalText(item)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
-      )}
-    </section>
-  )
-}
-
 function ChiefComplaintsTable({ visits }: { visits: VisitData[] }) {
   const visitsWithComplaints = visits.filter(
     (visit) => visit.chiefComplaint.length > 0
@@ -173,7 +144,7 @@ function ChiefComplaintsTable({ visits }: { visits: VisitData[] }) {
         Chief complaints
       </h3>
       {visitsWithComplaints.length > 0 ? (
-        <Table>
+        <Table containerClassName="subtle-scrollbar">
           <TableBody>
             {visitsWithComplaints.map((visit) => (
               <TableRow key={visit.id}>
@@ -211,7 +182,7 @@ function PreviousMedicalHistoryTable({ visits }: { visits: VisitData[] }) {
         Previous medical history
       </h3>
       {visitsWithHistory.length > 0 ? (
-        <Table>
+        <Table containerClassName="subtle-scrollbar">
           <TableBody>
             {visitsWithHistory.map((visit) => (
               <TableRow key={visit.id}>
@@ -234,6 +205,253 @@ function PreviousMedicalHistoryTable({ visits }: { visits: VisitData[] }) {
       ) : (
         <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
       )}
+    </section>
+  )
+}
+
+function DiagnosisTable({ visits }: { visits: VisitData[] }) {
+  const visitsWithDiagnosis = visits.filter(
+    (visit) => visit.diagnosis.length > 0
+  )
+
+  return (
+    <section className="grid gap-2">
+      <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
+        Diagnosis
+      </h3>
+      {visitsWithDiagnosis.length > 0 ? (
+        <Table containerClassName="subtle-scrollbar">
+          <TableBody>
+            {visitsWithDiagnosis.map((visit) => (
+              <TableRow key={visit.id}>
+                <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
+                  {displayDate(visit.visitDate)}
+                </TableCell>
+                <TableCell className="whitespace-normal">
+                  <ul className="grid gap-0.5">
+                    {visit.diagnosis.map((diagnosis, index) => (
+                      <li
+                        key={`${diagnosis}-${index}`}
+                        className="text-xs wrap-break-word"
+                      >
+                        · {formatClinicalText(diagnosis)}
+                      </li>
+                    ))}
+                  </ul>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
+      )}
+    </section>
+  )
+}
+
+function ClinicalRemarksTable({ visits }: { visits: VisitData[] }) {
+  const visitsWithRemarks = visits.filter((visit) => visit.remarks.trim())
+
+  return (
+    <section className="grid gap-2">
+      <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
+        Clinical remarks
+      </h3>
+      {visitsWithRemarks.length > 0 ? (
+        <Table containerClassName="subtle-scrollbar">
+          <TableBody>
+            {visitsWithRemarks.map((visit) => (
+              <TableRow key={visit.id}>
+                <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
+                  {displayDate(visit.visitDate)}
+                </TableCell>
+                <TableCell className="text-xs wrap-break-word whitespace-normal">
+                  · {formatClinicalText(visit.remarks)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
+      )}
+    </section>
+  )
+}
+
+function TestReportsTable({ visits }: { visits: VisitData[] }) {
+  const reports = visits.flatMap((visit) => visit.labReports)
+  const dates = [...new Set(reports.map((report) => report.reportDate))].sort(
+    (a, b) => b.localeCompare(a)
+  )
+  const tests = Array.from(
+    new Map(
+      reports.map((report) => [
+        report.test.trim().toLocaleLowerCase(),
+        report.test,
+      ])
+    ).entries()
+  )
+
+  return (
+    <section className="grid gap-2">
+      <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
+        Test reports
+      </h3>
+      {reports.length > 0 ? (
+        <Table containerClassName="subtle-scrollbar">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-24 min-w-24" />
+              {dates.map((date) => (
+                <TableHead
+                  key={date}
+                  className="w-24 min-w-24 text-xs font-semibold tabular-nums"
+                >
+                  {displayDate(date)}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tests.map(([testKey, testName]) => (
+              <TableRow key={testKey}>
+                <TableCell className="w-24 min-w-24 text-xs font-semibold wrap-break-word whitespace-normal">
+                  {formatClinicalText(testName)}
+                </TableCell>
+                {dates.map((date) => {
+                  const results = reports
+                    .filter(
+                      (report) =>
+                        report.reportDate === date &&
+                        report.test.trim().toLocaleLowerCase() === testKey
+                    )
+                    .map((report) => formatClinicalText(report.result))
+
+                  return (
+                    <TableCell
+                      key={date}
+                      className="w-24 min-w-24 text-xs wrap-break-word whitespace-pre-line"
+                    >
+                      {results.join("\n")}
+                    </TableCell>
+                  )
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
+      )}
+    </section>
+  )
+}
+
+function VitalsTable({ visits }: { visits: VisitData[] }) {
+  const vitals = [
+    {
+      label: "BP",
+      value: (visit: VisitData) => visit.bloodPressure || "—",
+    },
+    {
+      label: "Weight",
+      value: (visit: VisitData) => visit.weight || "—",
+    },
+    {
+      label: "Chest/Heart Sound",
+      value: (visit: VisitData) =>
+        visit.chestHeartSound === "Other"
+          ? visit.otherChestHeartSound || "OTHER"
+          : formatClinicalText(visit.chestHeartSound),
+    },
+  ]
+
+  return (
+    <section className="grid gap-2">
+      <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
+        Vitals
+      </h3>
+      <Table containerClassName="subtle-scrollbar">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-24 min-w-24" />
+            {visits.map((visit) => (
+              <TableHead
+                key={visit.id}
+                className="w-24 min-w-24 text-xs font-semibold tabular-nums"
+              >
+                {displayDate(visit.visitDate)}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {vitals.map((vital) => (
+            <TableRow key={vital.label}>
+              <TableCell className="w-24 min-w-24 text-xs font-semibold wrap-break-word whitespace-normal">
+                {vital.label}
+              </TableCell>
+              {visits.map((visit) => (
+                <TableCell
+                  key={visit.id}
+                  className="w-24 min-w-24 text-xs wrap-break-word whitespace-normal"
+                >
+                  {vital.value(visit)}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </section>
+  )
+}
+
+function MedicinesTables({ visits }: { visits: VisitData[] }) {
+  const visitsWithMedicines = visits.filter(
+    (visit) => visit.medicinesPrescribed.length > 0
+  )
+  const latestVisitWithMedicines = visitsWithMedicines[0]
+
+  if (!latestVisitWithMedicines) {
+    return (
+      <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+        <FlaskConical className="size-4" /> NO MEDICINES RECORDED
+      </div>
+    )
+  }
+
+  return (
+    <section className="grid gap-2">
+      <p className="font-mono text-xs font-semibold tabular-nums">
+        {displayDate(latestVisitWithMedicines.visitDate)}
+      </p>
+      <Table containerClassName="subtle-scrollbar">
+        <TableBody>
+          {latestVisitWithMedicines.medicinesPrescribed.map(
+            (medicine, index) => (
+              <TableRow key={`${medicine.name}-${index}`}>
+                <TableCell className="min-w-40 text-xs font-semibold wrap-break-word whitespace-normal">
+                  {formatClinicalText(medicine.name)}
+                  {medicine.notes && (
+                    <p className="mt-0.5 font-mono text-xs font-normal wrap-break-word text-muted-foreground">
+                      Notes: {formatClinicalText(medicine.notes)}
+                    </p>
+                  )}
+                </TableCell>
+                <TableCell className="w-20 min-w-20 text-xs font-semibold">
+                  {medicine.frequency}
+                </TableCell>
+                <TableCell className="w-20 min-w-20 text-xs font-semibold">
+                  {medicine.duration}
+                </TableCell>
+              </TableRow>
+            )
+          )}
+        </TableBody>
+      </Table>
     </section>
   )
 }
@@ -332,24 +550,9 @@ export function PatientOverview({
     .sort((a, b) => b.visitDate.localeCompare(a.visitDate))
   const latestVisit = savedVisits[0]
   const trends = buildTrends(savedVisits)
-  const diagnoses = unique(savedVisits.flatMap((visit) => visit.diagnosis))
-  const reports = unique(
-    savedVisits.flatMap((visit) =>
-      visit.labReports.map(
-        (report) =>
-          `${report.test}: ${report.result} (${displayDate(report.reportDate)})`
-      )
-    )
-  )
-  const remarks = unique(savedVisits.map((visit) => visit.remarks))
-  const medicines = unique(
-    savedVisits.flatMap((visit) =>
-      visit.medicinesPrescribed.map(
-        (medicine) =>
-          `${medicine.name} · ${medicine.frequency} · ${medicine.duration}${medicine.notes ? ` · ${medicine.notes}` : ""}`
-      )
-    )
-  )
+  const medicineCount =
+    savedVisits.find((visit) => visit.medicinesPrescribed.length > 0)
+      ?.medicinesPrescribed.length ?? 0
 
   return (
     <div className="grid gap-4">
@@ -398,9 +601,6 @@ export function PatientOverview({
               <h2 className="font-heading text-sm font-semibold tracking-wide uppercase">
                 Clinical trends
               </h2>
-              <Badge variant="secondary" className="ml-auto">
-                {trends.length} SERIES
-              </Badge>
             </div>
             {trends.length ? (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -424,45 +624,13 @@ export function PatientOverview({
                 <Separator />
                 <ChiefComplaintsTable visits={savedVisits} />
                 <Separator />
-                <section className="grid gap-2">
-                  <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
-                    Latest vitals ({displayDate(latestVisit.visitDate)})
-                  </h3>
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <dt className="text-muted-foreground">BP</dt>
-                      <dd className="font-medium">
-                        {latestVisit.bloodPressure || "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Weight</dt>
-                      <dd className="font-medium">
-                        {latestVisit.weight || "—"}
-                      </dd>
-                    </div>
-                    <div className="col-span-2">
-                      <dt className="text-muted-foreground">
-                        Chest / Heart sound
-                      </dt>
-                      <dd className="font-medium">
-                        {latestVisit.chestHeartSound === "Other"
-                          ? latestVisit.otherChestHeartSound || "OTHER"
-                          : formatClinicalText(latestVisit.chestHeartSound)}
-                      </dd>
-                    </div>
-                  </dl>
-                </section>
+                <VitalsTable visits={savedVisits} />
                 <Separator />
-                <ClinicalSection title="Test reports" items={reports} />
+                <TestReportsTable visits={savedVisits} />
                 <Separator />
-                <ClinicalSection title="Diagnosis" items={diagnoses} />
-                {remarks.length > 0 && (
-                  <>
-                    <Separator />
-                    <ClinicalSection title="Clinical remarks" items={remarks} />
-                  </>
-                )}
+                <DiagnosisTable visits={savedVisits} />
+                <Separator />
+                <ClinicalRemarksTable visits={savedVisits} />
               </div>
 
               <section className="grid content-start gap-3 lg:border-l lg:pl-8">
@@ -472,30 +640,10 @@ export function PatientOverview({
                     Prescribed medicines
                   </h3>
                   <Badge variant="secondary" className="ml-auto">
-                    {medicines.length}
+                    {medicineCount}
                   </Badge>
                 </div>
-                {medicines.length ? (
-                  <ol className="grid gap-0">
-                    {medicines.map((medicine, index) => (
-                      <li
-                        key={medicine}
-                        className="flex gap-3 border-b border-dashed py-3 text-sm last:border-0"
-                      >
-                        <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <span className="font-medium break-words">
-                          {formatClinicalText(medicine)}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                ) : (
-                  <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-                    <FlaskConical className="size-4" /> NO MEDICINES RECORDED
-                  </div>
-                )}
+                <MedicinesTables visits={savedVisits} />
               </section>
             </CardContent>
           </Card>
@@ -518,7 +666,7 @@ function PatientFact({
 }) {
   return (
     <div>
-      <p className="text-sm font-medium text-muted-foreground uppercase">
+      <p className="text-xs font-medium text-muted-foreground uppercase">
         {label}
       </p>
       <p
