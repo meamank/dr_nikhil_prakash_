@@ -91,7 +91,6 @@ const STATUS_LABELS: Record<string, string> = {
   refunded: "Refunded",
   in_progress: "In Progress",
   done: "Done",
-  cancelled: "Cancelled",
   no_show: "No Show",
 }
 
@@ -130,7 +129,6 @@ function statusBadge(status: string) {
         </Badge>
       )
     case "not_paid":
-    case "cancelled":
       return (
         <Badge variant="destructive" className="px-1.5">
           {label}
@@ -255,7 +253,7 @@ export function DataTable({
               )}
               {onMarkPaid &&
                 !row.original.patientPid &&
-                row.original.status !== "cancelled" && (
+                row.original.status === "not_paid" && (
                   <Button
                     size="sm"
                     disabled={payingId === row.original.id}

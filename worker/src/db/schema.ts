@@ -200,7 +200,6 @@ export const appointments = sqliteTable("appointments", {
       "refunded",
       "in_progress",
       "done",
-      "cancelled",
       "no_show",
     ],
   })

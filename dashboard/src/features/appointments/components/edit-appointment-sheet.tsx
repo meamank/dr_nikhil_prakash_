@@ -34,7 +34,6 @@ const STATUSES = [
   "refunded",
   "in_progress",
   "done",
-  "cancelled",
   "no_show",
 ] as const
 
@@ -45,7 +44,6 @@ const STATUS_LABELS: Record<string, string> = {
   refunded: "Refunded",
   in_progress: "In Progress",
   done: "Done",
-  cancelled: "Cancelled",
   no_show: "No Show",
 }
 

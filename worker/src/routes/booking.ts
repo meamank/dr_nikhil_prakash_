@@ -127,7 +127,7 @@ booking.post("/appointments", async (c) => {
   const db = createDb(c.env.DB)
 
   // Queue number: max existing for this clinic + day, +1.
-  // Uses max (not count) so deleted/cancelled slots never cause duplicates.
+  // Uses max (not count) so deleted/no-show slots never cause duplicates.
   // scheduledAt is stored as the IST noon of the picked day (slot time TBD at clinic).
   const scheduledAt = new Date(pickedDay.getTime() + 12 * 60 * 60 * 1000)
   const dayStart = pickedDay
@@ -226,7 +226,7 @@ booking.patch("/appointments/:id", async (c) => {
       patientGender?: "male" | "female" | "other" | null
       clinic?: "juran_chhapra" | "bhagwanpur"
       date?: string
-      status?: "not_paid" | "paid" | "foc" | "refunded" | "in_progress" | "done" | "cancelled" | "no_show"
+      status?: "not_paid" | "paid" | "foc" | "refunded" | "in_progress" | "done" | "no_show"
     }>()
     .catch(() => null)
   if (!body) return bad(c, "Invalid body")
@@ -283,7 +283,7 @@ booking.patch("/appointments/:id", async (c) => {
     patch.scheduledAt = new Date(pickedDay.getTime() + 12 * 60 * 60 * 1000)
   }
   if (body.status !== undefined) {
-    if (!["not_paid", "paid", "foc", "refunded", "in_progress", "done", "cancelled", "no_show"].includes(body.status)) {
+    if (!["not_paid", "paid", "foc", "refunded", "in_progress", "done", "no_show"].includes(body.status)) {
       return bad(c, "Invalid status")
     }
     if ((body.status === "paid" || body.status === "foc") && !appt.patientPid) {
@@ -472,6 +472,9 @@ booking.post("/appointments/:id/mark-paid", async (c) => {
     .limit(1)
   const appt = rows[0]
   if (!appt) return bad(c, "Appointment not found", 404)
+  if (appt.status !== "not_paid") {
+    return bad(c, "Only not-paid appointments can be marked paid", 409)
+  }
   if (appt.patientPid) {
     return c.json({ ok: true, pid: appt.patientPid, already: true })
   }
