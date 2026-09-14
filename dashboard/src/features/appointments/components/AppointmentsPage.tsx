@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,6 +14,7 @@ import {
   type AppointmentPatch,
 } from "./edit-appointment-sheet"
 import { useAppointmentsHeader } from "../appointments-header-context"
+import { Route } from "@/routes/_authenticated/appointments/index"
 
 type Clinic = "juran_chhapra" | "bhagwanpur"
 type Pagination = { pageIndex: number; pageSize: number }
@@ -22,6 +23,11 @@ const CLINICS: { id: Clinic; label: string }[] = [
   { id: "juran_chhapra", label: "Juran Chhapra" },
   { id: "bhagwanpur", label: "Bhagwanpur" },
 ]
+
+function todayIST(): string {
+  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
+  return ist.toISOString().slice(0, 10)
+}
 
 function matchesAppointmentSearch(appointment: AppointmentRow, query: string) {
   const search = query.trim().toLowerCase()
@@ -35,11 +41,17 @@ function matchesAppointmentSearch(appointment: AppointmentRow, query: string) {
 }
 
 export default function AppointmentsPage() {
-  const searchParams = useSearch({ from: "/_authenticated/appointments/" })
-  const navigate = useNavigate({ from: "/_authenticated/appointments/" })
+  const searchParams = Route.useSearch()
+  const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const { setSummary } = useAppointmentsHeader()
-  const { clinic, date, query: search, page, pageSize } = searchParams
+  const {
+    clinic = "juran_chhapra",
+    date = todayIST(),
+    query: search = "",
+    page = 0,
+    pageSize = 10,
+  } = searchParams
   const [refreshing, setRefreshing] = useState(false)
   const [editing, setEditing] = useState<AppointmentRow | null>(null)
   const [pendingDelete, setPendingDelete] = useState<AppointmentRow | null>(
