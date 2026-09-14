@@ -1,6 +1,6 @@
 /**
  * Booking API client — talks to the Worker (/api/booking/*).
- * OTP is STUBBED: no verification step, book directly.
+ * Public appointments require WhatsApp OTP verification first.
  *
  * Dev: worker on :8787 next to Astro on :4321.
  * Prod: PUBLIC_API_URL (the worker URL) baked at build time.
@@ -40,7 +40,21 @@ export function isValidMobile(input: string): boolean {
 
 export type ClinicId = "juran_chhapra" | "bhagwanpur";
 
+export async function requestBookingOtp(mobile: string) {
+  return post<{ ok: true; expiresInSec: number }>("/api/booking/otp/request", {
+    mobile,
+  });
+}
+
+export async function verifyBookingOtp(mobile: string, code: string) {
+  return post<{ ok: true; bookingToken: string; mobile: string }>(
+    "/api/booking/otp/verify",
+    { mobile, code },
+  );
+}
+
 export async function createBookingAppointment(input: {
+  bookingToken: string;
   patientName: string;
   address?: string;
   mobile: string;

@@ -9,6 +9,8 @@ import * as schema from "./db/schema"
  *   WHATSAPP_PHONE_NUMBER_ID  — phone_number_id from Meta dashboard
  *   WHATSAPP_OTP_TEMPLATE     — auth template name (default: clinic_otp)
  *   WHATSAPP_BOOKING_TEMPLATE — booking confirm template (default: booking_confirm)
+ *   WHATSAPP_TEMPLATE_LANGUAGE — approved template language (default: en_US)
+ *   WHATSAPP_API_VERSION      — Graph API version (default: v21.0)
  *
  * Local dev without secrets: logs the code to console and pretends success
  * so the booking flow can be tested end-to-end without Meta.
@@ -20,6 +22,8 @@ export type WhatsAppEnv = {
   WHATSAPP_PHONE_NUMBER_ID?: string
   WHATSAPP_OTP_TEMPLATE?: string
   WHATSAPP_BOOKING_TEMPLATE?: string
+  WHATSAPP_TEMPLATE_LANGUAGE?: string
+  WHATSAPP_API_VERSION?: string
 }
 
 export function isWhatsAppConfigured(env: WhatsAppEnv): boolean {
@@ -67,6 +71,8 @@ export async function sendOtpWhatsApp(
   code: string,
 ): Promise<{ ok: boolean; providerId?: string; error?: string }> {
   const template = env.WHATSAPP_OTP_TEMPLATE ?? "clinic_otp"
+  const language = env.WHATSAPP_TEMPLATE_LANGUAGE ?? "en_US"
+  const apiVersion = env.WHATSAPP_API_VERSION ?? "v21.0"
 
   if (!isWhatsAppConfigured(env)) {
     // Dev fallback — visible in `wrangler dev` logs
@@ -82,7 +88,7 @@ export async function sendOtpWhatsApp(
 
   try {
     const res = await fetch(
-      `https://graph.facebook.com/v21.0/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/${apiVersion}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {
         method: "POST",
         headers: {
@@ -95,7 +101,7 @@ export async function sendOtpWhatsApp(
           type: "template",
           template: {
             name: template,
-            language: { code: "en" },
+            language: { code: language },
             components: [
               {
                 type: "body",
@@ -160,6 +166,8 @@ export async function sendBookingConfirmWhatsApp(
   details: { patientName: string; clinic: string; when: string },
 ): Promise<void> {
   const template = env.WHATSAPP_BOOKING_TEMPLATE ?? "booking_confirm"
+  const language = env.WHATSAPP_TEMPLATE_LANGUAGE ?? "en_US"
+  const apiVersion = env.WHATSAPP_API_VERSION ?? "v21.0"
 
   if (!isWhatsAppConfigured(env)) {
     console.log(
@@ -177,7 +185,7 @@ export async function sendBookingConfirmWhatsApp(
 
   try {
     const res = await fetch(
-      `https://graph.facebook.com/v21.0/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/${apiVersion}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {
         method: "POST",
         headers: {
@@ -190,7 +198,7 @@ export async function sendBookingConfirmWhatsApp(
           type: "template",
           template: {
             name: template,
-            language: { code: "en" },
+            language: { code: language },
             components: [
               {
                 type: "body",

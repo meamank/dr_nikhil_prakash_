@@ -17,6 +17,10 @@ export type Env = {
   WHATSAPP_PHONE_NUMBER_ID?: string
   WHATSAPP_OTP_TEMPLATE?: string
   WHATSAPP_BOOKING_TEMPLATE?: string
+  WHATSAPP_TEMPLATE_LANGUAGE?: string
+  WHATSAPP_API_VERSION?: string
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN?: string
+  META_APP_SECRET?: string
   /**
    * Public URL of the API in production, e.g. "https://api.drnikhilprakash.com".
    * Set in wrangler.toml [vars]; overridden in dev via .dev.vars.

@@ -294,10 +294,8 @@ export const prescriptions = sqliteTable("prescriptions", {
 })
 
 // ---------------------------------------------------------------------------
-// Booking OTP (STUBBED for now) + WhatsApp logs
-// OTP verification is stubbed — anyone can book with just a mobile number.
-// When WhatsApp is wired up, booking_otps will hold the hashed codes and
-// POST /api/booking/appointments will require a verified bookingToken.
+// Booking OTP + WhatsApp logs
+// A verified OTP row id becomes a short-lived, one-use booking token.
 // PID login (username plugin) stays separate.
 // ---------------------------------------------------------------------------
 
@@ -305,8 +303,8 @@ export const bookingOtps = sqliteTable(
   "booking_otps",
   {
     id: text("id").primaryKey(), // uuid
-    mobile: text("mobile").notNull(), // 10-digit number (unverified while stubbed)
-    codeHash: text("code_hash").notNull(), // SHA-256 of the 6-digit code
+    mobile: text("mobile").notNull(), // canonical 10-digit Indian number
+    codeHash: text("code_hash").notNull(), // SHA-256 of row id + OTP
     attempts: integer("attempts").notNull().default(0),
     verified: integer("verified", { mode: "boolean" })
       .notNull()

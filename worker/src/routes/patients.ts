@@ -206,6 +206,7 @@ patients.post("/:pid/visits", async (c) => {
     .from(schema.patientVisits)
     .where(eq(schema.patientVisits.id, id))
     .limit(1)
+  if (!visit) return bad(c, "Visit could not be created", 500)
   return c.json({ visit: presentVisit(visit) }, 201)
 })
 
@@ -242,6 +243,7 @@ patients.patch("/:pid/visits/:visitId", async (c) => {
     .from(schema.patientVisits)
     .where(eq(schema.patientVisits.id, visitId))
     .limit(1)
+  if (!visit) return bad(c, "Visit could not be updated", 500)
   return c.json({ visit: presentVisit(visit) })
 })
 

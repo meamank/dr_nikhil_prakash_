@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   allowedBookingDates,
   createBookingAppointment,
   isValidMobile,
+  requestBookingOtp,
+  verifyBookingOtp,
   type ClinicId,
 } from "../lib/booking";
 
@@ -39,6 +41,9 @@ export default function BookAppointment() {
   const [age, setAge] = useState("");
   const [gender, setGender] = useState<"" | "male" | "female" | "other">("");
   const [clinic, setClinic] = useState<ClinicId>("juran_chhapra");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [resendIn, setResendIn] = useState(0);
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,6 +55,16 @@ export default function BookAppointment() {
 
   const { min, max } = allowedBookingDates();
   const [date, setDate] = useState(min);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const timer = window.setTimeout(
+      () => setResendIn((current) => Math.max(0, current - 1)),
+      1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [resendIn]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -75,7 +90,32 @@ export default function BookAppointment() {
     }
     setBusy(true);
     try {
+      await requestBookingOtp(mobile);
+      setOtpSent(true);
+      setOtpCode("");
+      setResendIn(60);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not send OTP. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verifyAndBook(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!/^\d{6}$/.test(otpCode)) {
+      setError("Enter the 6-digit OTP sent on WhatsApp");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const verification = await verifyBookingOtp(mobile, otpCode);
       const res = await createBookingAppointment({
+        bookingToken: verification.bookingToken,
         patientName: name.trim(),
         address: address.trim() || undefined,
         mobile: mobile.trim(),
@@ -92,6 +132,23 @@ export default function BookAppointment() {
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Booking failed. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resendOtp() {
+    if (resendIn > 0 || busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await requestBookingOtp(mobile);
+      setOtpCode("");
+      setResendIn(60);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not resend OTP. Try again.",
       );
     } finally {
       setBusy(false);
@@ -167,13 +224,83 @@ export default function BookAppointment() {
                 setMobile("");
                 setAge("");
                 setGender("");
-                setDate("");
+                setDate(min);
+                setOtpSent(false);
+                setOtpCode("");
+                setResendIn(0);
               }}
               className="mt-6 text-sm font-semibold text-teal-accent underline-offset-4 hover:underline"
             >
               Book another appointment
             </button>
           </div>
+        ) : otpSent ? (
+          <form
+            className="flex min-h-72 flex-col justify-center"
+            onSubmit={verifyAndBook}
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-teal-accent">
+              Verify mobile
+            </p>
+            <h3 className="mt-2 text-2xl font-bold text-forest">
+              Enter the WhatsApp OTP
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-ink/65">
+              We sent a 6-digit code to +91 {mobile.replace(/\D/g, "").slice(-10)}.
+            </p>
+
+            <div className="mt-6">
+              <label htmlFor="book-otp" className={labelClasses}>
+                One-time password
+              </label>
+              <input
+                id="book-otp"
+                type="text"
+                required
+                autoFocus
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                value={otpCode}
+                onChange={(event) =>
+                  setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                placeholder="6-digit OTP"
+                className={`${inputClasses} text-center text-xl tracking-[0.35em]`}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={busy || otpCode.length !== 6}
+              className="mt-4 rounded-pill bg-forest px-8 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:opacity-60"
+            >
+              {busy ? "Verifying…" : "Verify and book"}
+            </button>
+
+            <div className="mt-4 flex items-center justify-between gap-4 text-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpSent(false);
+                  setOtpCode("");
+                  setError(null);
+                }}
+                className="font-semibold text-teal-accent underline-offset-4 hover:underline"
+              >
+                Change details
+              </button>
+              <button
+                type="button"
+                disabled={busy || resendIn > 0}
+                onClick={() => void resendOtp()}
+                className="font-semibold text-teal-accent underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:text-ink/40"
+              >
+                {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend OTP"}
+              </button>
+            </div>
+          </form>
         ) : (
           <form className="flex flex-col gap-3" onSubmit={submit}>
             <div>
@@ -311,7 +438,7 @@ export default function BookAppointment() {
               disabled={busy}
               className="mt-1 rounded-pill bg-forest px-8 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep disabled:opacity-60"
             >
-              {busy ? "Booking…" : "Book appointment"}
+              {busy ? "Sending OTP…" : "Continue with WhatsApp OTP"}
             </button>
           </form>
         )}

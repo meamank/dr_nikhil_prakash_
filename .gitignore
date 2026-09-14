@@ -69,3 +69,5 @@ Clinic-Portal-architecture.md
 DEPLOY.md
 DEPLOY.md
 worker/scripts/seed-overview-demo.ts
+worker/tests/booking-otp.test.ts
+worker/tests/whatsapp-webhook.test.ts

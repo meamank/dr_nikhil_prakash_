@@ -4,14 +4,15 @@ import { normalizePhone } from "@repo/shared"
 import { createDb } from "../db"
 import * as schema from "../db/schema"
 import type { Env } from "../auth"
+import {
+  sendBookingConfirmWhatsApp,
+  sendOtpWhatsApp,
+} from "../whatsapp"
 
-// Booking flow (OTP STUBBED):
-//   POST /api/booking/appointments — anyone books with mobile, no OTP check.
+// Public booking flow: request OTP, verify it, then submit the appointment
+// with the short-lived one-use booking token returned by verification.
 //   Queue number is per clinic per day (resets daily).
 //   PID is issued only when staff marks Paid (mark-paid endpoint below).
-//
-// When WhatsApp OTP is wired up: re-enable bookingToken verification
-// (see git history for the OTP implementation).
 
 const booking = new Hono<{ Bindings: Env }>()
 
@@ -36,18 +37,78 @@ function startOfDayIST(d: Date): Date {
   return new Date(Date.UTC(y, m, day) - 5.5 * 60 * 60 * 1000)
 }
 
-// POST /api/booking/otp/request — STUB: always succeeds, no SMS sent.
+const OTP_EXPIRY_MS = 5 * 60 * 1000
+const OTP_RESEND_MS = 60 * 1000
+const OTP_MAX_ATTEMPTS = 5
+
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  )
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("")
+}
+
+function generateOtp(): string {
+  const limit = Math.floor(0x1_0000_0000 / 1_000_000) * 1_000_000
+  const values = new Uint32Array(1)
+  do {
+    crypto.getRandomValues(values)
+  } while (values[0]! >= limit)
+  return String(values[0]! % 1_000_000).padStart(6, "0")
+}
+
+// POST /api/booking/otp/request
 booking.post("/otp/request", async (c) => {
   const body = await c.req.json<{ mobile?: string }>().catch(() => null)
   const mobile = body?.mobile ? normalizePhone(body.mobile) : null
   if (!mobile || !/^[6-9]\d{9}$/.test(mobile)) {
     return bad(c, "Enter a valid 10-digit mobile number")
   }
-  console.log(`[booking:stub] OTP request for ${mobile} — skipped (stubbed)`)
-  return c.json({ ok: true, stubbed: true, expiresInSec: 300 })
+  const db = createDb(c.env.DB)
+  const now = new Date()
+  const [latest] = await db
+    .select({ createdAt: schema.bookingOtps.createdAt })
+    .from(schema.bookingOtps)
+    .where(eq(schema.bookingOtps.mobile, mobile))
+    .orderBy(desc(schema.bookingOtps.createdAt))
+    .limit(1)
+
+  if (latest && now.getTime() - latest.createdAt.getTime() < OTP_RESEND_MS) {
+    const retryAfter = Math.ceil(
+      (OTP_RESEND_MS - (now.getTime() - latest.createdAt.getTime())) / 1000,
+    )
+    c.header("Retry-After", String(retryAfter))
+    return c.json(
+      { error: `Please wait ${retryAfter} seconds before requesting another OTP` },
+      429,
+    )
+  }
+
+  const id = newId()
+  const code = generateOtp()
+  await db.insert(schema.bookingOtps).values({
+    id,
+    mobile,
+    codeHash: await sha256(`${id}:${code}`),
+    attempts: 0,
+    verified: false,
+    expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
+  })
+
+  const sent = await sendOtpWhatsApp(c.env, mobile, code)
+  if (!sent.ok) {
+    await db.delete(schema.bookingOtps).where(eq(schema.bookingOtps.id, id))
+    console.error("WhatsApp OTP send failed", sent.error)
+    return bad(c, "Could not send the WhatsApp OTP. Please try again.", 502)
+  }
+
+  return c.json({ ok: true, expiresInSec: OTP_EXPIRY_MS / 1000 })
 })
 
-// POST /api/booking/otp/verify — STUB: accepts any 6-digit code.
+// POST /api/booking/otp/verify
 booking.post("/otp/verify", async (c) => {
   const body = await c.req
     .json<{ mobile?: string; code?: string }>()
@@ -57,14 +118,51 @@ booking.post("/otp/verify", async (c) => {
   if (!mobile || !/^[6-9]\d{9}$/.test(mobile) || code.length !== 6) {
     return bad(c, "Enter the 6-digit OTP")
   }
-  console.log(`[booking:stub] OTP verify for ${mobile} — accepted (stubbed)`)
-  // Stub token: caller must still pass it, but it carries no proof.
-  // The create endpoint below does NOT check it while stubbed.
-  return c.json({ ok: true, bookingToken: `stub-${mobile}`, mobile, stubbed: true })
+  const db = createDb(c.env.DB)
+  const [otp] = await db
+    .select()
+    .from(schema.bookingOtps)
+    .where(eq(schema.bookingOtps.mobile, mobile))
+    .orderBy(desc(schema.bookingOtps.createdAt))
+    .limit(1)
+
+  if (!otp || otp.expiresAt.getTime() <= Date.now()) {
+    return bad(c, "OTP has expired. Request a new one.")
+  }
+  if (otp.attempts >= OTP_MAX_ATTEMPTS) {
+    return bad(c, "Too many incorrect attempts. Request a new OTP.", 429)
+  }
+  if (otp.verified) {
+    return c.json({ ok: true, bookingToken: otp.id, mobile })
+  }
+
+  const submittedHash = await sha256(`${otp.id}:${code}`)
+  if (submittedHash !== otp.codeHash) {
+    const attempts = otp.attempts + 1
+    await db
+      .update(schema.bookingOtps)
+      .set({ attempts })
+      .where(eq(schema.bookingOtps.id, otp.id))
+    const remaining = OTP_MAX_ATTEMPTS - attempts
+    return bad(
+      c,
+      remaining > 0
+        ? `Incorrect OTP. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`
+        : "Too many incorrect attempts. Request a new OTP.",
+      remaining > 0 ? 400 : 429,
+    )
+  }
+
+  await db
+    .update(schema.bookingOtps)
+    .set({ verified: true })
+    .where(eq(schema.bookingOtps.id, otp.id))
+
+  return c.json({ ok: true, bookingToken: otp.id, mobile })
 })
 
 // POST /api/booking/appointments
-// { patientName, address?, mobile, age?, gender?,
+// { bookingToken, patientName, address?, mobile, age?, gender?,
 //   clinic, date } — date is YYYY-MM-DD, booking allowed for today + next 2 days.
 booking.post("/appointments", async (c) => {
   const body = await c.req
@@ -76,6 +174,7 @@ booking.post("/appointments", async (c) => {
       patientGender?: "male" | "female" | "other"
       clinic?: "juran_chhapra" | "bhagwanpur"
       date?: string // YYYY-MM-DD
+      bookingToken?: string
     }>()
     .catch(() => null)
 
@@ -126,6 +225,26 @@ booking.post("/appointments", async (c) => {
 
   const db = createDb(c.env.DB)
 
+  const bookingToken = body?.bookingToken?.trim()
+  if (!bookingToken) {
+    return bad(c, "Verify the mobile number before booking", 401)
+  }
+  const [verifiedOtp] = await db
+    .select({ id: schema.bookingOtps.id })
+    .from(schema.bookingOtps)
+    .where(
+      and(
+        eq(schema.bookingOtps.id, bookingToken),
+        eq(schema.bookingOtps.mobile, patientMobile),
+        eq(schema.bookingOtps.verified, true),
+        gt(schema.bookingOtps.expiresAt, new Date()),
+      ),
+    )
+    .limit(1)
+  if (!verifiedOtp) {
+    return bad(c, "Mobile verification expired. Request a new OTP.", 401)
+  }
+
   // Queue number: max existing for this clinic + day, +1.
   // Uses max (not count) so deleted/no-show slots never cause duplicates.
   // scheduledAt is stored as the IST noon of the picked day (slot time TBD at clinic).
@@ -146,6 +265,16 @@ booking.post("/appointments", async (c) => {
 
   // One mobile can book many patients — no dedup, always a new request row.
   const id = newId()
+  const claimed = await c.env.DB
+    .prepare(
+      "DELETE FROM booking_otps WHERE id = ? AND mobile = ? AND verified = 1 AND expires_at > ? RETURNING id",
+    )
+    .bind(bookingToken, patientMobile, Math.floor(Date.now() / 1000))
+    .first<{ id: string }>()
+  if (!claimed) {
+    return bad(c, "Mobile verification was already used or has expired", 401)
+  }
+
   await db.insert(schema.appointments).values({
     id,
     patientPid: null,
@@ -161,6 +290,15 @@ booking.post("/appointments", async (c) => {
     status: "not_paid",
     paymentStatus: "unpaid",
   })
+
+  c.executionCtx.waitUntil(
+    sendBookingConfirmWhatsApp(c.env, patientMobile, id, {
+      patientName,
+      clinic:
+        clinic === "bhagwanpur" ? "Bhagwanpur" : "Juran Chhapra",
+      when: dateStr,
+    }),
+  )
 
   return c.json(
     { ok: true, appointmentId: id, queueNumber, status: "not_paid" },
