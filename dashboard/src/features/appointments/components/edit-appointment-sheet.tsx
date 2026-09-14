@@ -10,7 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import type { AppointmentRow } from "@/components/data-table"
+import type { AppointmentRow } from "../appointment-row"
 import {
   AppointmentDetailsFields,
   type AppointmentDetails,

@@ -15,17 +15,11 @@ import {
   type ColumnVisibilityState,
   type SortingState,
 } from "@tanstack/react-table"
-import { z } from "zod"
 import { Link } from "@tanstack/react-router"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import type { AppointmentRow } from "@/features/appointments/appointment-row"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -48,7 +42,11 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsRightIcon,
-  EllipsisVerticalIcon,
+  ChevronDownIcon,
+  HouseIcon,
+  PencilIcon,
+  SmartphoneIcon,
+  Trash2Icon,
 } from "lucide-react"
 
 const features = tableFeatures({
@@ -61,28 +59,7 @@ const features = tableFeatures({
   sortedRowModel: createSortedRowModel(),
 })
 
-const columnHelper = createColumnHelper<
-  typeof features,
-  z.infer<typeof schema>
->()
-
-export const schema = z.object({
-  id: z.string(),
-  patientPid: z.string().nullable(),
-  patientName: z.string(),
-  patientMobile: z.string(),
-  patientAddress: z.string().nullable(),
-  patientGender: z.string().nullable(),
-  patientAgeYears: z.number().nullable(),
-  clinic: z.string(),
-  queueNumber: z.number(),
-  scheduledAt: z.union([z.string(), z.number()]),
-  status: z.string(),
-  paymentStatus: z.string(),
-  createdAt: z.union([z.string(), z.number()]),
-})
-
-export type AppointmentRow = z.infer<typeof schema>
+const columnHelper = createColumnHelper<typeof features, AppointmentRow>()
 
 const STATUS_LABELS: Record<string, string> = {
   not_paid: "Not Paid",
@@ -152,11 +129,11 @@ export function DataTable({
   pagination: controlledPagination,
   onPaginationChange: onControlledPaginationChange,
 }: {
-  data: z.infer<typeof schema>[]
+  data: AppointmentRow[]
   onMarkPaid?: (id: string) => void
   payingId?: string | null
-  onEdit?: (row: z.infer<typeof schema>) => void
-  onDelete?: (row: z.infer<typeof schema>) => void
+  onEdit?: (row: AppointmentRow) => void
+  onDelete?: (row: AppointmentRow) => void
   pagination?: { pageIndex: number; pageSize: number }
   onPaginationChange?: React.Dispatch<
     React.SetStateAction<{ pageIndex: number; pageSize: number }>
@@ -281,8 +258,20 @@ export function DataTable({
     pageIndex: 0,
     pageSize: 10,
   })
+  const [expandedMobileRows, setExpandedMobileRows] = React.useState<
+    Set<string>
+  >(new Set())
   const pagination = controlledPagination ?? localPagination
   const onPaginationChange = onControlledPaginationChange ?? setLocalPagination
+
+  const toggleMobileRow = React.useCallback((id: string) => {
+    setExpandedMobileRows((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   const table = useTable({
     features,
@@ -308,40 +297,58 @@ export function DataTable({
         {table.getRowModel().rows.length ? (
           table.getRowModel().rows.map((row) => {
             const appointment = row.original
+            const isExpanded = expandedMobileRows.has(appointment.id)
 
             return (
-              <div key={row.id} className="rounded-lg border p-3">
+              <div
+                key={row.id}
+                className="overflow-hidden rounded-lg border p-2"
+              >
                 <div className="flex items-center gap-3">
                   <span className="grid size-4 shrink-0 place-items-center rounded-xs bg-muted text-xs font-semibold tabular-nums">
                     {appointment.queueNumber}
                   </span>
-                  <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                  <div className="min-w-0 flex-1">
                     {appointment.patientPid ? (
                       <Link
                         to="/patients/$patientId"
                         params={{ patientId: appointment.patientPid }}
-                        className="w-24 shrink-0 truncate text-xs font-medium hover:underline hover:underline-offset-4"
+                        className="block truncate text-xs font-medium hover:underline hover:underline-offset-4"
                       >
                         {appointment.patientName.toUpperCase()}
                       </Link>
                     ) : (
-                      <p className="w-24 shrink-0 truncate text-xs font-medium">
+                      <p className="truncate text-xs font-medium">
                         {appointment.patientName.toUpperCase()}
                       </p>
                     )}
-                    <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                      {appointment.patientAddress?.toUpperCase() ||
-                        "No Address"}
-                    </p>
+                    <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground">
+                      <p className="flex min-w-0 flex-1 items-center gap-1 truncate">
+                        <HouseIcon
+                          className="size-3 shrink-0 text-primary"
+                          aria-hidden="true"
+                        />
+                        {appointment.patientAddress?.toUpperCase() ||
+                          "No Address"}
+                      </p>
+                      <p className="flex shrink-0 items-center gap-1 tabular-nums">
+                        <SmartphoneIcon
+                          className="size-3 shrink-0 text-primary"
+                          aria-hidden="true"
+                        />
+                        {appointment.patientMobile}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="grid w-28 shrink-0 grid-cols-[1fr_2rem] items-center">
+                    <div className="flex justify-center">
                     {appointment.status !== "not_paid"
                       ? statusBadge(appointment.status)
                       : onMarkPaid &&
                         !appointment.patientPid && (
                           <Button
                             size="sm"
-                            className="px-2 text-xs"
+                            className="px-2 text-[10px]"
                             disabled={payingId === appointment.id}
                             onClick={() => onMarkPaid(appointment.id)}
                           >
@@ -350,35 +357,55 @@ export function DataTable({
                               : "Mark Paid"}
                           </Button>
                         )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="size-8"
-                          aria-label={`Actions for ${appointment.patientName}`}
-                        >
-                          <EllipsisVerticalIcon />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8"
+                      aria-label={`${isExpanded ? "Hide" : "Show"} actions for ${appointment.patientName}`}
+                      aria-expanded={isExpanded}
+                      aria-controls={`mobile-actions-${appointment.id}`}
+                      onClick={() => toggleMobileRow(appointment.id)}
+                    >
+                      <ChevronDownIcon
+                        className={`size-6 text-muted-foreground transition-transform duration-300 ease-out ${isExpanded ? "rotate-180" : ""}`}
+                      />
+                    </Button>
+                  </div>
+                </div>
+                <div
+                  id={`mobile-actions-${appointment.id}`}
+                  className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+                    isExpanded
+                      ? "grid-rows-[1fr] opacity-100"
+                      : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="mt-2 grid grid-cols-2 border-t py-2">
+                      <div className="col-start-2 flex justify-end gap-2">
                         {onEdit && (
-                          <DropdownMenuItem
-                            onSelect={() => onEdit(appointment)}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onEdit(appointment)}
                           >
-                            Edit appointment
-                          </DropdownMenuItem>
+                            <PencilIcon />
+                            Edit
+                          </Button>
                         )}
                         {onDelete && (
-                          <DropdownMenuItem
+                          <Button
+                            size="sm"
                             variant="destructive"
-                            onSelect={() => onDelete(appointment)}
+                            onClick={() => onDelete(appointment)}
                           >
-                            Delete appointment
-                          </DropdownMenuItem>
+                            <Trash2Icon />
+                            Delete
+                          </Button>
                         )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -3,7 +3,7 @@ import { and, desc, eq, gt, gte, like, lt, ne, or, sql } from "drizzle-orm"
 import { normalizePhone } from "@repo/shared"
 import { createDb } from "../db"
 import * as schema from "../db/schema"
-import type { Env } from "../auth"
+import { createAuth, type Env } from "../auth"
 import {
   sendBookingConfirmWhatsApp,
   sendOtpWhatsApp,
@@ -225,24 +225,36 @@ booking.post("/appointments", async (c) => {
 
   const db = createDb(c.env.DB)
 
+  const session = await createAuth(c.env).api.getSession({
+    headers: c.req.raw.headers,
+  })
+  const staffUser =
+    session && (session.user.role === "staff" || session.user.role === "admin")
+      ? session.user
+      : null
   const bookingToken = body?.bookingToken?.trim()
-  if (!bookingToken) {
-    return bad(c, "Verify the mobile number before booking", 401)
-  }
-  const [verifiedOtp] = await db
-    .select({ id: schema.bookingOtps.id })
-    .from(schema.bookingOtps)
-    .where(
-      and(
-        eq(schema.bookingOtps.id, bookingToken),
-        eq(schema.bookingOtps.mobile, patientMobile),
-        eq(schema.bookingOtps.verified, true),
-        gt(schema.bookingOtps.expiresAt, new Date()),
-      ),
-    )
-    .limit(1)
-  if (!verifiedOtp) {
-    return bad(c, "Mobile verification expired. Request a new OTP.", 401)
+
+  // Dashboard staff can book on a patient's behalf. Public callers, including
+  // signed-in patient accounts, must prove control of the submitted mobile.
+  if (!staffUser) {
+    if (!bookingToken) {
+      return bad(c, "Verify the mobile number before booking", 401)
+    }
+    const [verifiedOtp] = await db
+      .select({ id: schema.bookingOtps.id })
+      .from(schema.bookingOtps)
+      .where(
+        and(
+          eq(schema.bookingOtps.id, bookingToken),
+          eq(schema.bookingOtps.mobile, patientMobile),
+          eq(schema.bookingOtps.verified, true),
+          gt(schema.bookingOtps.expiresAt, new Date()),
+        ),
+      )
+      .limit(1)
+    if (!verifiedOtp) {
+      return bad(c, "Mobile verification expired. Request a new OTP.", 401)
+    }
   }
 
   // Queue number: max existing for this clinic + day, +1.
@@ -265,14 +277,16 @@ booking.post("/appointments", async (c) => {
 
   // One mobile can book many patients — no dedup, always a new request row.
   const id = newId()
-  const claimed = await c.env.DB
-    .prepare(
-      "DELETE FROM booking_otps WHERE id = ? AND mobile = ? AND verified = 1 AND expires_at > ? RETURNING id",
-    )
-    .bind(bookingToken, patientMobile, Math.floor(Date.now() / 1000))
-    .first<{ id: string }>()
-  if (!claimed) {
-    return bad(c, "Mobile verification was already used or has expired", 401)
+  if (!staffUser) {
+    const claimed = await c.env.DB
+      .prepare(
+        "DELETE FROM booking_otps WHERE id = ? AND mobile = ? AND verified = 1 AND expires_at > ? RETURNING id",
+      )
+      .bind(bookingToken, patientMobile, Math.floor(Date.now() / 1000))
+      .first<{ id: string }>()
+    if (!claimed) {
+      return bad(c, "Mobile verification was already used or has expired", 401)
+    }
   }
 
   await db.insert(schema.appointments).values({
@@ -285,7 +299,7 @@ booking.post("/appointments", async (c) => {
     patientAgeYears: age,
     clinic,
     queueNumber,
-    bookedBy: null,
+    bookedBy: staffUser?.id ?? null,
     scheduledAt,
     status: "not_paid",
     paymentStatus: "unpaid",
