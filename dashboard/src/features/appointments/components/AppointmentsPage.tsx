@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -23,18 +23,6 @@ const CLINICS: { id: Clinic; label: string }[] = [
   { id: "bhagwanpur", label: "Bhagwanpur" },
 ]
 
-function todayIST(): string {
-  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
-  return ist.toISOString().slice(0, 10)
-}
-
-function initialPagination(): Pagination {
-  const isMobile =
-    typeof window !== "undefined" &&
-    window.matchMedia("(max-width: 767px)").matches
-  return { pageIndex: 0, pageSize: isMobile ? 15 : 10 }
-}
-
 function matchesAppointmentSearch(appointment: AppointmentRow, query: string) {
   const search = query.trim().toLowerCase()
   if (!search) return true
@@ -47,13 +35,12 @@ function matchesAppointmentSearch(appointment: AppointmentRow, query: string) {
 }
 
 export default function AppointmentsPage() {
+  const searchParams = useSearch({ from: "/_authenticated/appointments/" })
+  const navigate = useNavigate({ from: "/_authenticated/appointments/" })
   const queryClient = useQueryClient()
   const { setSummary } = useAppointmentsHeader()
-  const [clinic, setClinic] = useState<Clinic>("juran_chhapra")
-  const [date, setDate] = useState(todayIST())
-  const [search, setSearch] = useState("")
+  const { clinic, date, query: search, page, pageSize } = searchParams
   const [refreshing, setRefreshing] = useState(false)
-  const [pagination, setPagination] = useState<Pagination>(initialPagination)
   const [editing, setEditing] = useState<AppointmentRow | null>(null)
   const [pendingDelete, setPendingDelete] = useState<AppointmentRow | null>(
     null
@@ -154,18 +141,35 @@ export default function AppointmentsPage() {
     saveEditMutation.error ??
     deleteAppointmentMutation.error
 
-  function resetToFirstPage() {
-    setPagination((current) => ({ ...current, pageIndex: 0 }))
-  }
-
   function changeClinic(next: Clinic) {
-    setClinic(next)
-    resetToFirstPage()
+    navigate({
+      search: (current) => ({ ...current, clinic: next, page: 0 }),
+    })
   }
 
   function changeDate(next: string) {
-    setDate(next)
-    resetToFirstPage()
+    navigate({
+      search: (current) => ({ ...current, date: next, page: 0 }),
+    })
+  }
+
+  function changeSearch(next: string) {
+    navigate({
+      replace: true,
+      search: (current) => ({ ...current, query: next, page: 0 }),
+    })
+  }
+
+  function changePagination(next: React.SetStateAction<Pagination>) {
+    const current = { pageIndex: page, pageSize }
+    const pagination = typeof next === "function" ? next(current) : next
+    navigate({
+      search: (previous) => ({
+        ...previous,
+        page: Math.max(0, pagination.pageIndex),
+        pageSize: pagination.pageSize,
+      }),
+    })
   }
 
   async function refreshAppointments() {
@@ -220,8 +224,7 @@ export default function AppointmentsPage() {
             placeholder="Search name, mobile, PID, address…"
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value)
-              resetToFirstPage()
+              changeSearch(e.target.value)
             }}
             className="w-44"
           />
@@ -261,8 +264,8 @@ export default function AppointmentsPage() {
           }
           onEdit={setEditing}
           onDelete={setPendingDelete}
-          pagination={pagination}
-          onPaginationChange={setPagination}
+          pagination={{ pageIndex: page, pageSize }}
+          onPaginationChange={changePagination}
         />
       )}
 
