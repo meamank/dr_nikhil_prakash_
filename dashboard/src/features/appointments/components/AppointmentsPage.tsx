@@ -275,6 +275,17 @@ export default function AppointmentsPage() {
               ? (markPaidMutation.variables ?? null)
               : null
           }
+          onStatusChange={(appointment, status) =>
+            saveEditMutation.mutate({
+              id: appointment.id,
+              patch: { status },
+            })
+          }
+          statusChangingId={
+            saveEditMutation.isPending
+              ? (saveEditMutation.variables?.id ?? null)
+              : null
+          }
           onEdit={setEditing}
           onDelete={setPendingDelete}
           pagination={{ pageIndex: page, pageSize }}

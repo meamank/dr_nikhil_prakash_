@@ -124,6 +124,8 @@ export function DataTable({
   data: initialData,
   onMarkPaid,
   payingId,
+  onStatusChange,
+  statusChangingId,
   onEdit,
   onDelete,
   pagination: controlledPagination,
@@ -132,6 +134,8 @@ export function DataTable({
   data: AppointmentRow[]
   onMarkPaid?: (id: string) => void
   payingId?: string | null
+  onStatusChange?: (row: AppointmentRow, status: "foc" | "no_show") => void
+  statusChangingId?: string | null
   onEdit?: (row: AppointmentRow) => void
   onDelete?: (row: AppointmentRow) => void
   pagination?: { pageIndex: number; pageSize: number }
@@ -383,7 +387,39 @@ export function DataTable({
                 >
                   <div className="overflow-hidden">
                     <div className="mt-2 grid grid-cols-2 border-t py-2">
-                      <div className="col-start-2 flex justify-end gap-2">
+                      <div className="flex items-center gap-2 pr-2">
+                        {onStatusChange && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={
+                                statusChangingId === appointment.id ||
+                                appointment.status === "foc"
+                              }
+                              onClick={() =>
+                                onStatusChange(appointment, "foc")
+                              }
+                            >
+                              FOC
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={
+                                statusChangingId === appointment.id ||
+                                appointment.status === "no_show"
+                              }
+                              onClick={() =>
+                                onStatusChange(appointment, "no_show")
+                              }
+                            >
+                              No Show
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex justify-end gap-2 border-l pl-2">
                         {onEdit && (
                           <Button
                             size="sm"
