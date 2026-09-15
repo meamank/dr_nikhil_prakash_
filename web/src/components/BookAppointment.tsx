@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   allowedBookingDates,
+  clinicClosureMessage,
   createBookingAppointment,
   isValidMobile,
   requestBookingOtp,
@@ -55,6 +56,7 @@ export default function BookAppointment() {
 
   const { min, max } = allowedBookingDates();
   const [date, setDate] = useState(min);
+  const ageNum = age.trim() === "" ? undefined : Number(age);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -80,7 +82,11 @@ export default function BookAppointment() {
       setError("Pick a date (today + next 2 days)");
       return;
     }
-    const ageNum = age.trim() === "" ? undefined : Number(age);
+    const closureMessage = clinicClosureMessage(clinic, date);
+    if (closureMessage) {
+      setError(closureMessage);
+      return;
+    }
     if (
       ageNum !== undefined &&
       (!Number.isFinite(ageNum) || ageNum < 0 || ageNum > 130)
@@ -90,7 +96,7 @@ export default function BookAppointment() {
     }
     setBusy(true);
     try {
-      await requestBookingOtp(mobile);
+      await requestBookingOtp(mobile, name.trim());
       setOtpSent(true);
       setOtpCode("");
       setResendIn(60);
@@ -106,8 +112,8 @@ export default function BookAppointment() {
   async function verifyAndBook(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!/^\d{6}$/.test(otpCode)) {
-      setError("Enter the 6-digit OTP sent on WhatsApp");
+    if (!/^[a-z]{6}$/.test(otpCode)) {
+      setError("Enter the 6-letter code sent on WhatsApp");
       return;
     }
 
@@ -143,7 +149,7 @@ export default function BookAppointment() {
     setError(null);
     setBusy(true);
     try {
-      await requestBookingOtp(mobile);
+      await requestBookingOtp(mobile, name.trim());
       setOtpCode("");
       setResendIn(60);
     } catch (err) {
@@ -246,7 +252,7 @@ export default function BookAppointment() {
               Enter the WhatsApp OTP
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-ink/65">
-              We sent a 6-digit code to +91 {mobile.replace(/\D/g, "").slice(-10)}.
+              We sent a 6-letter code to +91 {mobile.replace(/\D/g, "").slice(-10)}.
             </p>
 
             <div className="mt-6">
@@ -259,14 +265,19 @@ export default function BookAppointment() {
                 required
                 autoFocus
                 autoComplete="one-time-code"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
+                inputMode="text"
+                pattern="[A-Za-z]{6}"
                 maxLength={6}
                 value={otpCode}
                 onChange={(event) =>
-                  setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                  setOtpCode(
+                    event.target.value
+                      .replace(/[^a-z]/gi, "")
+                      .toLowerCase()
+                      .slice(0, 6),
+                  )
                 }
-                placeholder="6-digit OTP"
+                placeholder="6-letter code"
                 className={`${inputClasses} text-center text-xl tracking-[0.35em]`}
               />
             </div>

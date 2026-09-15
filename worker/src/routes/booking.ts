@@ -61,20 +61,30 @@ async function sha256(value: string): Promise<string> {
 }
 
 function generateOtp(): string {
-  const limit = Math.floor(0x1_0000_0000 / 1_000_000) * 1_000_000
-  const values = new Uint32Array(1)
-  do {
-    crypto.getRandomValues(values)
-  } while (values[0]! >= limit)
-  return String(values[0]! % 1_000_000).padStart(6, "0")
+  const alphabet = "abcdefghijklmnopqrstuvwxyz"
+  const unbiasedLimit = Math.floor(256 / alphabet.length) * alphabet.length
+  let code = ""
+  while (code.length < 6) {
+    const values = crypto.getRandomValues(new Uint8Array(6 - code.length))
+    for (const value of values) {
+      if (value < unbiasedLimit) code += alphabet[value % alphabet.length]
+    }
+  }
+  return code
 }
 
 // POST /api/booking/otp/request
 booking.post("/otp/request", async (c) => {
-  const body = await c.req.json<{ mobile?: string }>().catch(() => null)
+  const body = await c.req
+    .json<{ mobile?: string; patientName?: string }>()
+    .catch(() => null)
   const mobile = body?.mobile ? normalizePhone(body.mobile) : null
+  const patientName = body?.patientName?.trim() ?? ""
   if (!mobile || !/^[6-9]\d{9}$/.test(mobile)) {
     return bad(c, "Enter a valid 10-digit mobile number")
+  }
+  if (patientName.length < 2 || patientName.length > 100) {
+    return bad(c, "Enter the patient's full name")
   }
   const db = createDb(c.env.DB)
   const now = new Date()
@@ -107,7 +117,7 @@ booking.post("/otp/request", async (c) => {
     expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
   })
 
-  const sent = await sendOtpWhatsApp(c.env, mobile, code)
+  const sent = await sendOtpWhatsApp(c.env, mobile, code, patientName)
   if (!sent.ok) {
     await db.delete(schema.bookingOtps).where(eq(schema.bookingOtps.id, id))
     console.error("WhatsApp OTP send failed", sent.error)
@@ -123,9 +133,9 @@ booking.post("/otp/verify", async (c) => {
     .json<{ mobile?: string; code?: string }>()
     .catch(() => null)
   const mobile = body?.mobile ? normalizePhone(body.mobile) : null
-  const code = body?.code?.replace(/\D/g, "") ?? ""
-  if (!mobile || !/^[6-9]\d{9}$/.test(mobile) || code.length !== 6) {
-    return bad(c, "Enter the 6-digit OTP")
+  const code = body?.code?.trim().toLowerCase() ?? ""
+  if (!mobile || !/^[6-9]\d{9}$/.test(mobile) || !/^[a-z]{6}$/.test(code)) {
+    return bad(c, "Enter the 6-letter verification code")
   }
   const db = createDb(c.env.DB)
   const [otp] = await db
@@ -225,6 +235,13 @@ booking.post("/appointments", async (c) => {
     return bad(c, "Pick a valid date")
   }
   const pickedDay = startOfDayIST(picked)
+  const weekday = new Date(`${dateStr}T00:00:00Z`).getUTCDay()
+  if (clinic === "juran_chhapra" && weekday === 6) {
+    return bad(c, "Juran Chhapra clinic is closed on Saturdays")
+  }
+  if (clinic === "bhagwanpur" && weekday === 0) {
+    return bad(c, "Bhagwanpur clinic is closed on Sundays")
+  }
   if (pickedDay < todayIST) {
     return bad(c, "Date cannot be in the past")
   }
@@ -314,14 +331,16 @@ booking.post("/appointments", async (c) => {
     paymentStatus: "unpaid",
   })
 
-  c.executionCtx.waitUntil(
-    sendBookingConfirmWhatsApp(c.env, patientMobile, id, {
-      patientName,
-      clinic:
-        clinic === "bhagwanpur" ? "Bhagwanpur" : "Juran Chhapra",
-      when: dateStr,
-    }),
-  )
+  if (!staffUser) {
+    const [year, month, day] = dateStr.split("-")
+    c.executionCtx.waitUntil(
+      sendBookingConfirmWhatsApp(c.env, patientMobile, id, {
+        patientName,
+        appointmentDate: `${day}-${month}-${year}`,
+        queueNumber,
+      }),
+    )
+  }
 
   return c.json(
     { ok: true, appointmentId: id, queueNumber, status: "not_paid" },

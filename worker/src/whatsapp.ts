@@ -62,13 +62,15 @@ async function logMessage(
 }
 
 /**
- * Send a 6-digit OTP via an Authentication template.
- * Uses the `code` parameter so WhatsApp shows the copy/autofill button.
+ * Send a six-letter code using the temporary Utility template.
+ * Body variables are patient name ({{1}}), provider name ({{2}}),
+ * and verification code ({{3}}).
  */
 export async function sendOtpWhatsApp(
   env: WhatsAppEnv,
   mobile10: string,
   code: string,
+  patientName: string,
 ): Promise<{ ok: boolean; providerId?: string; error?: string }> {
   const template = env.WHATSAPP_OTP_TEMPLATE ?? "clinic_otp"
   const language = env.WHATSAPP_TEMPLATE_LANGUAGE ?? "en_US"
@@ -105,13 +107,11 @@ export async function sendOtpWhatsApp(
             components: [
               {
                 type: "body",
-                parameters: [{ type: "text", text: code }],
-              },
-              {
-                type: "button",
-                sub_type: "url",
-                index: "0",
-                parameters: [{ type: "text", text: code }],
+                parameters: [
+                  { type: "text", text: patientName },
+                  { type: "text", text: "Dr (Maj) Nikhil Prakash" },
+                  { type: "text", text: code },
+                ],
               },
             ],
           },
@@ -163,7 +163,7 @@ export async function sendBookingConfirmWhatsApp(
   env: WhatsAppEnv,
   mobile10: string,
   appointmentId: string,
-  details: { patientName: string; clinic: string; when: string },
+  details: { patientName: string; appointmentDate: string; queueNumber: number },
 ): Promise<void> {
   const template = env.WHATSAPP_BOOKING_TEMPLATE ?? "booking_confirm"
   const language = env.WHATSAPP_TEMPLATE_LANGUAGE ?? "en_US"
@@ -171,7 +171,7 @@ export async function sendBookingConfirmWhatsApp(
 
   if (!isWhatsAppConfigured(env)) {
     console.log(
-      `[whatsapp:dev] booking confirm ${mobile10} → ${details.patientName} @ ${details.when}`,
+      `[whatsapp:dev] booking confirm ${mobile10} → ${details.patientName} on ${details.appointmentDate}, queue ${details.queueNumber}`,
     )
     await logMessage(env, {
       toMobile: mobile10,
@@ -204,8 +204,9 @@ export async function sendBookingConfirmWhatsApp(
                 type: "body",
                 parameters: [
                   { type: "text", text: details.patientName },
-                  { type: "text", text: details.when },
-                  { type: "text", text: details.clinic },
+                  { type: "text", text: details.appointmentDate },
+                  { type: "text", text: String(details.queueNumber) },
+                  { type: "text", text: "9801317878" },
                 ],
               },
             ],

@@ -40,9 +40,25 @@ export function isValidMobile(input: string): boolean {
 
 export type ClinicId = "juran_chhapra" | "bhagwanpur";
 
-export async function requestBookingOtp(mobile: string) {
+export function clinicClosureMessage(
+  clinic: ClinicId,
+  date: string,
+): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+  if (clinic === "juran_chhapra" && weekday === 6) {
+    return "Juran Chhapra clinic is closed on Saturdays";
+  }
+  if (clinic === "bhagwanpur" && weekday === 0) {
+    return "Bhagwanpur clinic is closed on Sundays";
+  }
+  return null;
+}
+
+export async function requestBookingOtp(mobile: string, patientName: string) {
   return post<{ ok: true; expiresInSec: number }>("/api/booking/otp/request", {
     mobile,
+    patientName,
   });
 }
 
