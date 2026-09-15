@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
+import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +12,7 @@ import {
   type AppointmentDetails,
   type Clinic,
 } from "./appointment-details-fields"
+import { Route } from "@/routes/_authenticated/appointments/add"
 
 function todayIST(): string {
   const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
@@ -18,14 +20,18 @@ function todayIST(): string {
 }
 
 export default function AddAppointmentPage() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
+  const search = Route.useSearch()
+  const queryClient = useQueryClient()
   const [name, setName] = useState("")
   const [address, setAddress] = useState("")
   const [mobile, setMobile] = useState("")
   const [age, setAge] = useState("")
   const [gender, setGender] = useState("")
-  const [clinic, setClinic] = useState<Clinic>("juran_chhapra")
-  const [date, setDate] = useState(todayIST())
+  const [clinic, setClinic] = useState<Clinic>(
+    search.clinic ?? "juran_chhapra"
+  )
+  const [date, setDate] = useState(search.date ?? todayIST())
   const [status, setStatus] = useState<"not_paid" | "paid" | "foc">("not_paid")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -99,7 +105,15 @@ export default function AddAppointmentPage() {
       } else {
         toast.success("Appointment added")
       }
-      navigate({ to: "/appointments" })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["appointments"] }),
+        queryClient.invalidateQueries({ queryKey: ["patients"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ])
+      navigate({
+        to: "/appointments",
+        search: { clinic, date },
+      })
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Failed to add appointment"
@@ -169,7 +183,9 @@ export default function AddAppointmentPage() {
             </div>
             <div className="flex justify-end gap-2 md:col-span-2">
               <Button type="button" variant="outline" asChild disabled={saving}>
-                <Link to="/appointments">Cancel</Link>
+                <Link to="/appointments" search={{ clinic, date }}>
+                  Cancel
+                </Link>
               </Button>
               <Button type="submit" disabled={saving}>
                 {saving ? "Booking…" : "Book appointment"}

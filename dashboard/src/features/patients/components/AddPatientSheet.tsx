@@ -52,6 +52,8 @@ export function AddPatientSheet({
   }
 
   React.useEffect(() => {
+    // Each controlled open begins with a clean creation form.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (open) reset()
   }, [open])
 

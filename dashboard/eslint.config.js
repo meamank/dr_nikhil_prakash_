@@ -19,4 +19,18 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Route modules and shared UI modules intentionally export route/config
+    // helpers alongside components. They are valid Fast Refresh boundaries.
+    files: [
+      'src/routes/**/*.{ts,tsx}',
+      'src/components/ui/**/*.{ts,tsx}',
+      'src/components/patients-table.tsx',
+      'src/features/patients/components/patients-table.tsx',
+      'src/features/appointments/appointments-header-context.tsx',
+    ],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

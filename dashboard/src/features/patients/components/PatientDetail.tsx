@@ -3,7 +3,12 @@ import { getRouteApi, Link } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { Button } from "@/components/ui/button"
-import { apiGet, apiPatch } from "@/lib/api"
+import { apiPatch } from "@/lib/api"
+import {
+  patientKeys,
+  patientQueryOptions,
+  type Patient,
+} from "../patient-queries"
 import { FormLoader } from "@/components/FormLoader"
 import { VisitTabs } from "@/components/VisitTabs"
 import {
@@ -13,33 +18,11 @@ import {
 
 const routeApi = getRouteApi("/_authenticated/patients/$patientId")
 
-type Patient = {
-  pid: string
-  userId: string | null
-  fullName: string
-  mobile: string
-  address: string | null
-  ageYears: number | null
-  gender: string | null
-  isFirstLogin: boolean | number
-  createdAt: string | number
-}
-
 export default function PatientDetail() {
   const { patientId } = routeApi.useParams()
   const queryClient = useQueryClient()
   const [editingDemographics, setEditingDemographics] = useState(false)
-  const patientQuery = useQuery({
-    queryKey: ["patient", patientId] as const,
-    queryFn: async () => {
-      const data = await apiGet<{
-        patient?: Patient
-      }>(`/api/patients/${encodeURIComponent(patientId)}`)
-      if (!data?.patient) throw new Error("Patient not found")
-      return data.patient
-    },
-    staleTime: 30_000,
-  })
+  const patientQuery = useQuery(patientQueryOptions(patientId))
   const patient = patientQuery.data
   const updatePatientMutation = useMutation({
     mutationFn: (patch: PatientDemographicsPatch) =>
@@ -48,9 +31,9 @@ export default function PatientDetail() {
         patch
       ),
     onSuccess: ({ patient: updatedPatient }) => {
-      queryClient.setQueryData(["patient", patientId], updatedPatient)
+      queryClient.setQueryData(patientKeys.detail(patientId), updatedPatient)
       setEditingDemographics(false)
-      return queryClient.invalidateQueries({ queryKey: ["patients"] })
+      return queryClient.invalidateQueries({ queryKey: patientKeys.all })
     },
   })
   const requestError = patientQuery.error ?? updatePatientMutation.error

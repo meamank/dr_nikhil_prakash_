@@ -24,8 +24,14 @@ async function parse<T>(res: Response): Promise<T> {
 }
 
 /** GET JSON with session cookies. Throws with the server's error message. */
-export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${apiBase()}${path}`, { credentials: "include" })
+export async function apiGet<T>(
+  path: string,
+  options?: { signal?: AbortSignal }
+): Promise<T> {
+  const res = await fetch(`${apiBase()}${path}`, {
+    credentials: "include",
+    signal: options?.signal,
+  })
   return parse<T>(res)
 }
 

@@ -52,6 +52,8 @@ export function EditPatientSheet({
 
   React.useEffect(() => {
     if (!open) return
+    // Opening the controlled sheet hydrates its editable draft.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFullName(patient.fullName)
     setMobile(patient.mobile)
     setAddress(patient.address ?? "")

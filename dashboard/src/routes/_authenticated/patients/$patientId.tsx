@@ -1,11 +1,9 @@
 import PatientDetail from "@/features/patients/components/PatientDetail"
 import { createFileRoute } from "@tanstack/react-router"
-import { apiGet } from "@/lib/api"
+import { patientQueryOptions } from "@/features/patients/patient-queries"
 
 export const Route = createFileRoute("/_authenticated/patients/$patientId")({
-  loader: async ({ params }) =>
-    apiGet<{ patient: { pid: string; fullName: string } }>(
-      `/api/patients/${encodeURIComponent(params.patientId)}`
-    ).catch(() => null),
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(patientQueryOptions(params.patientId)),
   component: PatientDetail,
 })

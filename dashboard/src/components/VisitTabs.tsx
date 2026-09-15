@@ -93,6 +93,8 @@ export function VisitTabs({
   const visitsState = [...savedVisits, ...draftVisits]
 
   useEffect(() => {
+    // A route-param change starts a distinct patient's tab workspace.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraftVisits([])
     setActive("overview")
   }, [patient.pid])

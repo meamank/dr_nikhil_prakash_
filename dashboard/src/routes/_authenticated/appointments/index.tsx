@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 import AppointmentsPage from "@/features/appointments/components/AppointmentsPage"
+import {
+  appointmentsQueryOptions,
+  todayIST,
+} from "@/features/appointments/appointment-queries"
 
 type AppointmentSearch = {
   clinic?: "juran_chhapra" | "bhagwanpur"
@@ -32,5 +36,13 @@ export const Route = createFileRoute("/_authenticated/appointments/")({
         ? search.pageSize
         : undefined,
   }),
+  loaderDeps: ({ search }) => ({
+    clinic: search.clinic ?? "juran_chhapra",
+    date: search.date ?? todayIST(),
+  }),
+  loader: ({ context, deps }) =>
+    context.queryClient.ensureQueryData(
+      appointmentsQueryOptions(deps.clinic, deps.date)
+    ),
   component: AppointmentsPage,
 })

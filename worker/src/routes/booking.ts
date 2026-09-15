@@ -37,9 +37,18 @@ function startOfDayIST(d: Date): Date {
   return new Date(Date.UTC(y, m, day) - 5.5 * 60 * 60 * 1000)
 }
 
+function startOfMonthIST(d: Date, monthOffset = 0): Date {
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000)
+  return new Date(
+    Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth() + monthOffset, 1) -
+      5.5 * 60 * 60 * 1000,
+  )
+}
+
 const OTP_EXPIRY_MS = 5 * 60 * 1000
 const OTP_RESEND_MS = 60 * 1000
 const OTP_MAX_ATTEMPTS = 5
+const APPOINTMENT_FEE_INR = 500
 
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -321,6 +330,284 @@ booking.post("/appointments", async (c) => {
 })
 
 // GET /api/booking/appointments?clinic=&date=YYYY-MM-DD — staff day view
+// Current all-time dashboard totals. Revenue follows the appointment's current
+// status, so a formerly paid appointment stops contributing after a change.
+booking.get("/dashboard-summary", async (c) => {
+  const session = await createAuth(c.env).api.getSession({
+    headers: c.req.raw.headers,
+  })
+  if (!session) return bad(c, "Sign in to view dashboard totals", 401)
+  if (session.user.role !== "staff" && session.user.role !== "admin") {
+    return bad(c, "Staff access required", 403)
+  }
+
+  const db = createDb(c.env.DB)
+  const requestedPeriod = c.req.query("period")
+  const requestedFrom = c.req.query("from")
+  const requestedTo = c.req.query("to")
+  const hasCustomRange =
+    /^\d{4}-\d{2}-\d{2}$/.test(requestedFrom ?? "") &&
+    /^\d{4}-\d{2}-\d{2}$/.test(requestedTo ?? "")
+  const period = ["1d", "7d", "30d", "90d"].includes(requestedPeriod ?? "")
+    ? (requestedPeriod as "1d" | "7d" | "30d" | "90d")
+    : hasCustomRange
+      ? "custom"
+      : "total"
+  const periodDays =
+    period === "1d"
+      ? 1
+      : period === "7d"
+        ? 7
+        : period === "30d"
+          ? 30
+          : period === "90d"
+            ? 90
+            : null
+  const todayStart = startOfDayIST(new Date())
+  const customStart = hasCustomRange
+    ? startOfDayIST(new Date(`${requestedFrom}T00:00:00+05:30`))
+    : null
+  const customLastDay = hasCustomRange
+    ? startOfDayIST(new Date(`${requestedTo}T00:00:00+05:30`))
+    : null
+  if (
+    hasCustomRange &&
+    (!customStart ||
+      !customLastDay ||
+      Number.isNaN(customStart.getTime()) ||
+      Number.isNaN(customLastDay.getTime()) ||
+      customLastDay < customStart)
+  ) {
+    return bad(c, "Invalid dashboard date range")
+  }
+  const currentEnd = customLastDay
+    ? new Date(customLastDay.getTime() + 24 * 60 * 60 * 1000)
+    : new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
+  const periodStart = customStart
+    ? customStart
+    : periodDays
+      ? new Date(
+          todayStart.getTime() -
+            (periodDays - 1) * 24 * 60 * 60 * 1000,
+        )
+      : null
+  const comparisonDays = periodStart
+    ? Math.round(
+        (currentEnd.getTime() - periodStart.getTime()) /
+          (24 * 60 * 60 * 1000),
+      )
+    : null
+  const aggregate = async (start?: Date, end?: Date) => {
+    const [row] = await db
+      .select({
+        totalAppointments: sql<number>`count(*)`,
+        paidAppointments: sql<number>`sum(case when ${schema.appointments.status} = 'paid' then 1 else 0 end)`,
+        focAppointments: sql<number>`sum(case when ${schema.appointments.status} = 'foc' then 1 else 0 end)`,
+        refundedAppointments: sql<number>`sum(case when ${schema.appointments.status} = 'refunded' then 1 else 0 end)`,
+      })
+      .from(schema.appointments)
+      .where(
+        start && end
+          ? and(
+              gte(schema.appointments.scheduledAt, start),
+              lt(schema.appointments.scheduledAt, end),
+            )
+          : undefined,
+      )
+    return row
+  }
+
+  const result = await aggregate(periodStart ?? undefined, periodStart ? currentEnd : undefined)
+  const paidAppointments = Number(result?.paidAppointments ?? 0)
+  const comparisonStart = periodStart ?? startOfMonthIST(new Date())
+  const comparisonEnd = currentEnd
+  const previousStart = comparisonDays
+    ? new Date(
+        comparisonStart.getTime() -
+          comparisonDays * 24 * 60 * 60 * 1000,
+      )
+    : startOfMonthIST(new Date(), -1)
+  const previousEnd = comparisonStart
+  const [comparisonCurrent, comparisonPrevious] = await Promise.all([
+    aggregate(comparisonStart, comparisonEnd),
+    aggregate(previousStart, previousEnd),
+  ])
+  const patientAggregate = async (start?: Date, end?: Date) => {
+    const [row] = await db
+      .select({
+        totalPatients: sql<number>`count(*)`,
+        malePatients: sql<number>`sum(case when ${schema.patients.gender} = 'male' then 1 else 0 end)`,
+        femalePatients: sql<number>`sum(case when ${schema.patients.gender} = 'female' then 1 else 0 end)`,
+      })
+      .from(schema.patients)
+      .where(
+        start && end
+          ? and(
+              gte(schema.patients.createdAt, start),
+              lt(schema.patients.createdAt, end),
+            )
+          : undefined,
+      )
+    return row
+  }
+  const patientComparisonStart = periodStart ?? startOfMonthIST(new Date())
+  const patientPreviousStart = comparisonDays
+    ? new Date(
+        patientComparisonStart.getTime() -
+          comparisonDays * 24 * 60 * 60 * 1000,
+      )
+    : startOfMonthIST(new Date(), -1)
+  const [patientResult, currentPatientTrend, previousPatientResult] = await Promise.all([
+    patientAggregate(periodStart ?? undefined, periodStart ? currentEnd : undefined),
+    patientAggregate(patientComparisonStart, currentEnd),
+    patientAggregate(patientPreviousStart, patientComparisonStart),
+  ])
+
+  return c.json({
+    totalAppointments: Number(result?.totalAppointments ?? 0),
+    paidAppointments,
+    focAppointments: Number(result?.focAppointments ?? 0),
+    refundedAppointments: Number(result?.refundedAppointments ?? 0),
+    appointmentFee: APPOINTMENT_FEE_INR,
+    totalRevenue: paidAppointments * APPOINTMENT_FEE_INR,
+    totalPatients: Number(patientResult?.totalPatients ?? 0),
+    genderDistribution: {
+      male: Number(patientResult?.malePatients ?? 0),
+      female: Number(patientResult?.femalePatients ?? 0),
+    },
+    patientTrend: {
+      currentPatients: Number(currentPatientTrend?.totalPatients ?? 0),
+      previousPatients: Number(previousPatientResult?.totalPatients ?? 0),
+    },
+    period,
+    trend: {
+      currentRevenue:
+        Number(comparisonCurrent?.paidAppointments ?? 0) * APPOINTMENT_FEE_INR,
+      previousRevenue:
+        Number(comparisonPrevious?.paidAppointments ?? 0) * APPOINTMENT_FEE_INR,
+      currentAppointments: Number(comparisonCurrent?.totalAppointments ?? 0),
+      previousAppointments: Number(comparisonPrevious?.totalAppointments ?? 0),
+      comparison:
+        comparisonDays === 1
+          ? "day"
+          : comparisonDays === 7
+            ? "week"
+            : comparisonDays !== null && comparisonDays >= 28 && comparisonDays <= 31
+              ? "month"
+              : comparisonDays === null
+                ? "month"
+                : "period",
+    },
+  })
+})
+
+booking.get("/dashboard-chart", async (c) => {
+  const session = await createAuth(c.env).api.getSession({
+    headers: c.req.raw.headers,
+  })
+  if (!session) return bad(c, "Sign in to view dashboard analytics", 401)
+  if (session.user.role !== "staff" && session.user.role !== "admin") {
+    return bad(c, "Staff access required", 403)
+  }
+
+  const requestedPeriod = c.req.query("period")
+  const requestedFrom = c.req.query("from")
+  const requestedTo = c.req.query("to")
+  const hasCustomRange =
+    /^\d{4}-\d{2}-\d{2}$/.test(requestedFrom ?? "") &&
+    /^\d{4}-\d{2}-\d{2}$/.test(requestedTo ?? "")
+  const periodDays =
+    requestedPeriod === "7d"
+      ? 7
+      : requestedPeriod === "30d"
+        ? 30
+        : requestedPeriod === "90d"
+          ? 90
+          : null
+  const todayStart = startOfDayIST(new Date())
+  const start = hasCustomRange
+    ? startOfDayIST(new Date(`${requestedFrom}T00:00:00+05:30`))
+    : periodDays
+      ? new Date(
+          todayStart.getTime() -
+            (periodDays - 1) * 24 * 60 * 60 * 1000,
+        )
+      : null
+  const lastDay = hasCustomRange
+    ? startOfDayIST(new Date(`${requestedTo}T00:00:00+05:30`))
+    : todayStart
+  if (
+    start &&
+    (Number.isNaN(start.getTime()) ||
+      Number.isNaN(lastDay.getTime()) ||
+      lastDay < start)
+  ) {
+    return bad(c, "Invalid dashboard date range")
+  }
+  const end = start
+    ? new Date(lastDay.getTime() + 24 * 60 * 60 * 1000)
+    : null
+  const dateExpression =
+    "date(%COLUMN%, 'unixepoch', '+5 hours', '+30 minutes')"
+  const appointmentDate = dateExpression.replace("%COLUMN%", "scheduled_at")
+  const patientDate = dateExpression.replace("%COLUMN%", "created_at")
+  const appointmentSql = `
+    SELECT ${appointmentDate} AS date,
+      count(*) AS appointments,
+      sum(case when status = 'paid' then ${APPOINTMENT_FEE_INR} else 0 end) AS revenue
+    FROM appointments
+    ${start && end ? "WHERE scheduled_at >= ? AND scheduled_at < ?" : ""}
+    GROUP BY ${appointmentDate}
+  `
+  const patientSql = `
+    SELECT ${patientDate} AS date, count(*) AS patients
+    FROM patients
+    ${start && end ? "WHERE created_at >= ? AND created_at < ?" : ""}
+    GROUP BY ${patientDate}
+  `
+  const appointmentStatement = c.env.DB.prepare(appointmentSql)
+  const patientStatement = c.env.DB.prepare(patientSql)
+  const startUnix = start ? Math.floor(start.getTime() / 1000) : null
+  const endUnix = end ? Math.floor(end.getTime() / 1000) : null
+  const [appointmentRows, patientRows] = await Promise.all([
+    (startUnix !== null && endUnix !== null
+      ? appointmentStatement.bind(startUnix, endUnix)
+      : appointmentStatement
+    ).all<{ date: string; appointments: number; revenue: number }>(),
+    (startUnix !== null && endUnix !== null
+      ? patientStatement.bind(startUnix, endUnix)
+      : patientStatement
+    ).all<{ date: string; patients: number }>(),
+  ])
+
+  const points = new Map<
+    string,
+    { date: string; revenue: number; patients: number; appointments: number }
+  >()
+  for (const row of appointmentRows.results) {
+    points.set(row.date, {
+      date: row.date,
+      revenue: Number(row.revenue ?? 0),
+      patients: 0,
+      appointments: Number(row.appointments ?? 0),
+    })
+  }
+  for (const row of patientRows.results) {
+    const point = points.get(row.date) ?? {
+      date: row.date,
+      revenue: 0,
+      patients: 0,
+      appointments: 0,
+    }
+    point.patients = Number(row.patients ?? 0)
+    points.set(row.date, point)
+  }
+
+  return c.json({
+    points: [...points.values()].sort((a, b) => a.date.localeCompare(b.date)),
+  })
+})
+
 booking.get("/appointments", async (c) => {
   const clinic = c.req.query("clinic")
   const dateStr = c.req.query("date")

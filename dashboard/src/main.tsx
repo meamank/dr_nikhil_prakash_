@@ -6,14 +6,24 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import "./index.css"
 import { routeTree } from "./routeTree.gen"
 
-const router = createRouter({
-  routeTree,
-  scrollRestoration: true,
-
-  basepath: import.meta.env.BASE_URL,
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 10 * 60_000,
+      retry: 1,
+    },
+  },
 })
 
-const queryClient = new QueryClient()
+const router = createRouter({
+  routeTree,
+  context: { queryClient },
+  scrollRestoration: true,
+  defaultPreload: "intent",
+  defaultPreloadStaleTime: 0,
+  basepath: import.meta.env.BASE_URL,
+})
 
 declare module "@tanstack/react-router" {
   interface Register {

@@ -39,13 +39,14 @@ export function LinkPidDialog({
   React.useEffect(() => {
     if (open && appointment) {
       // Prefill with the booked mobile so old patients surface immediately
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setQ(appointment.patientMobile)
       setAppliedQuery(appointment.patientMobile)
     } else {
       setQ("")
       setAppliedQuery("")
     }
-  }, [open, appointment?.id])
+  }, [open, appointment])
 
   const patientSearchQuery = useQuery({
     queryKey: ["patient-search", appliedQuery] as const,

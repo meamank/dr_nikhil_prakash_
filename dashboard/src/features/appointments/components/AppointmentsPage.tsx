@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { DataTable } from "@/components/data-table"
 import type { AppointmentRow } from "../appointment-row"
-import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api"
+import { apiDelete, apiPatch, apiPost } from "@/lib/api"
 import { toast } from "sonner"
 import {
   EditAppointmentSheet,
@@ -16,6 +16,11 @@ import {
 } from "./edit-appointment-sheet"
 import { useAppointmentsHeader } from "../appointments-header-context"
 import { Route } from "@/routes/_authenticated/appointments/index"
+import {
+  appointmentKeys,
+  appointmentsQueryOptions,
+  todayIST,
+} from "../appointment-queries"
 
 type Clinic = "juran_chhapra" | "bhagwanpur"
 type Pagination = { pageIndex: number; pageSize: number }
@@ -24,11 +29,6 @@ const CLINICS: { id: Clinic; label: string }[] = [
   { id: "juran_chhapra", label: "Juran Chhapra" },
   { id: "bhagwanpur", label: "Bhagwanpur" },
 ]
-
-function todayIST(): string {
-  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
-  return ist.toISOString().slice(0, 10)
-}
 
 function matchesAppointmentSearch(appointment: AppointmentRow, query: string) {
   const search = query.trim().toLowerCase()
@@ -58,18 +58,16 @@ export default function AppointmentsPage() {
   const [pendingDelete, setPendingDelete] = useState<AppointmentRow | null>(
     null
   )
-  const key = ["appointments", { clinic, date }] as const
-  const appointmentsQuery = useQuery({
-    queryKey: key,
-    queryFn: async () => {
-      const params = new URLSearchParams({ clinic, date })
-      const data = await apiGet<{ appointments?: AppointmentRow[] }>(
-        `/api/booking/appointments?${params}`
-      )
-      return data.appointments ?? []
-    },
-    staleTime: 30_000,
-  })
+  const key = appointmentKeys.list(clinic, date)
+  const appointmentsQuery = useQuery(appointmentsQueryOptions(clinic, date))
+
+  async function invalidateAppointmentData() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["appointments"] }),
+      queryClient.invalidateQueries({ queryKey: ["patients"] }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+    ])
+  }
   const rows = appointmentsQuery.data ?? []
   // The complete clinic/day queue is already loaded, so searching is instant
   // and does not make an API request for each typed character.
@@ -80,6 +78,16 @@ export default function AppointmentsPage() {
     (highest, appointment) => Math.max(highest, appointment.queueNumber),
     0
   )
+  const lastPage = Math.max(0, Math.ceil(visibleRows.length / pageSize) - 1)
+
+  useEffect(() => {
+    if (appointmentsQuery.isSuccess && page > lastPage) {
+      navigate({
+        replace: true,
+        search: (current) => ({ ...current, page: lastPage }),
+      })
+    }
+  }, [appointmentsQuery.isSuccess, lastPage, navigate, page])
 
   useEffect(() => {
     setSummary(
@@ -93,7 +101,7 @@ export default function AppointmentsPage() {
   const markPaidMutation = useMutation({
     mutationFn: (id: string) =>
       apiPost(`/api/booking/appointments/${encodeURIComponent(id)}/mark-paid`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+    onSuccess: invalidateAppointmentData,
   })
 
   const saveEditMutation = useMutation({
@@ -130,7 +138,7 @@ export default function AppointmentsPage() {
     },
     onSuccess: () => {
       setEditing(null)
-      return queryClient.invalidateQueries({ queryKey: key })
+      return invalidateAppointmentData()
     },
   })
   const deleteAppointmentMutation = useMutation({
@@ -145,7 +153,7 @@ export default function AppointmentsPage() {
           ? "Appointment and patient record deleted"
           : "Appointment deleted"
       )
-      return queryClient.invalidateQueries({ queryKey: key })
+      return invalidateAppointmentData()
     },
   })
   const requestError =
@@ -243,7 +251,9 @@ export default function AppointmentsPage() {
           />
         </div>
         <Button className="ml-auto" asChild>
-          <Link to="/appointments/add">+ Add Appointment</Link>
+          <Link to="/appointments/add" search={{ clinic, date }}>
+            + Add Appointment
+          </Link>
         </Button>
       </div>
 

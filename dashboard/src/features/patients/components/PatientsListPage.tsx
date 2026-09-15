@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   keepPreviousData,
   useMutation,
@@ -13,6 +13,7 @@ import { apiDelete, apiGet, apiPost } from "@/lib/api"
 import { PatientsTable, type PatientRow } from "./patients-table"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { AddPatientSheet, type NewPatient } from "./AddPatientSheet"
+import { Route } from "@/routes/_authenticated/patients/index"
 
 function todayIST(): string {
   const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
@@ -32,16 +33,24 @@ function matchesPatientSearch(patient: PatientRow, query: string) {
 
 export default function PatientsListPage() {
   const queryClient = useQueryClient()
-  const [q, setQ] = useState("")
-  const [appliedQuery, setAppliedQuery] = useState("")
-  const [date, setDate] = useState(todayIST())
-  const [showAll, setShowAll] = useState(false)
-  const [allPatientsPagination, setAllPatientsPagination] = useState({
-    pageIndex: 0,
-    pageSize: 30,
-  })
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const showAll = search.scope === "all"
+  const date = search.date ?? todayIST()
+  const appliedQuery = search.query ?? ""
+  const allPatientsPagination = {
+    pageIndex: search.page ?? 0,
+    pageSize: search.pageSize ?? 30,
+  }
+  const [q, setQ] = useState(appliedQuery)
   const [pendingPid, setPendingPid] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+
+  useEffect(() => {
+    // Back/forward navigation can restore a different applied URL search.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setQ(appliedQuery)
+  }, [appliedQuery])
   const key = [
     "patients",
     {
@@ -53,7 +62,7 @@ export default function PatientsListPage() {
   ] as const
   const patientsQuery = useQuery({
     queryKey: key,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const params = new URLSearchParams({
         limit: `${showAll ? allPatientsPagination.pageSize : 100}`,
       })
@@ -68,7 +77,7 @@ export default function PatientsListPage() {
       const data = await apiGet<{
         patients?: PatientRow[]
         total?: number
-      }>(`/api/patients?${params}`)
+      }>(`/api/patients?${params}`, { signal })
       return {
         patients: data.patients ?? [],
         total: data.total ?? 0,
@@ -83,13 +92,41 @@ export default function PatientsListPage() {
     ? rows
     : rows.filter((patient) => matchesPatientSearch(patient, q))
   const displayedTotal = showAll ? total : visibleRows.length
+  const lastPage = Math.max(
+    0,
+    Math.ceil(displayedTotal / allPatientsPagination.pageSize) - 1
+  )
+
+  useEffect(() => {
+    if (
+      showAll &&
+      patientsQuery.isSuccess &&
+      !patientsQuery.isPlaceholderData &&
+      allPatientsPagination.pageIndex > lastPage
+    ) {
+      navigate({
+        replace: true,
+        search: (current) => ({ ...current, page: lastPage }),
+      })
+    }
+  }, [
+    allPatientsPagination.pageIndex,
+    lastPage,
+    navigate,
+    patientsQuery.isPlaceholderData,
+    patientsQuery.isSuccess,
+    showAll,
+  ])
 
   const deletePatientMutation = useMutation({
     mutationFn: (pid: string) =>
       apiDelete(`/api/patients/${encodeURIComponent(pid)}`),
     onSuccess: (_data, pid) => {
       toast.success(`Patient ${pid} deleted`)
-      return queryClient.invalidateQueries({ queryKey: key })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["patients"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ])
     },
   })
 
@@ -99,7 +136,10 @@ export default function PatientsListPage() {
     onSuccess: (data) => {
       toast.success(`Patient ${data.patient?.pid ?? ""} added`)
       setAdding(false)
-      return queryClient.invalidateQueries({ queryKey: key })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["patients"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ])
     },
   })
   const requestError =
@@ -114,23 +154,40 @@ export default function PatientsListPage() {
 
   function searchAllPatients() {
     const nextQuery = q.trim()
-    const isFirstPage = allPatientsPagination.pageIndex === 0
-    setAllPatientsPagination((current) => ({ ...current, pageIndex: 0 }))
-    if (nextQuery === appliedQuery && isFirstPage) {
+    if (nextQuery === appliedQuery && allPatientsPagination.pageIndex === 0) {
       void queryClient.invalidateQueries({ queryKey: key })
       return
     }
-    setAppliedQuery(nextQuery)
+    navigate({
+      search: (current) => ({
+        ...current,
+        query: nextQuery || undefined,
+        page: 0,
+      }),
+    })
   }
 
   function togglePatientScope() {
     if (showAll) {
-      setShowAll(false)
+      navigate({
+        search: (current) => ({
+          ...current,
+          scope: undefined,
+          query: undefined,
+          page: 0,
+        }),
+      })
       return
     }
-    setAppliedQuery("")
-    setAllPatientsPagination((current) => ({ ...current, pageIndex: 0 }))
-    setShowAll(true)
+    setQ("")
+    navigate({
+      search: (current) => ({
+        ...current,
+        scope: "all",
+        query: undefined,
+        page: 0,
+      }),
+    })
   }
 
   const pendingPatient = visibleRows.find((r) => r.pid === pendingPid)
@@ -148,7 +205,15 @@ export default function PatientsListPage() {
                 id="patients-date"
                 type="date"
                 value={date}
-                onChange={(event) => setDate(event.target.value)}
+                onChange={(event) =>
+                  navigate({
+                    search: (current) => ({
+                      ...current,
+                      date: event.target.value,
+                      page: 0,
+                    }),
+                  })
+                }
                 className="w-auto"
               />
             </div>
@@ -222,7 +287,21 @@ export default function PatientsListPage() {
             }
             pagination={showAll ? allPatientsPagination : undefined}
             onPaginationChange={
-              showAll ? setAllPatientsPagination : undefined
+              showAll
+                ? (next) => {
+                    const pagination =
+                      typeof next === "function"
+                        ? next(allPatientsPagination)
+                        : next
+                    navigate({
+                      search: (current) => ({
+                        ...current,
+                        page: pagination.pageIndex,
+                        pageSize: pagination.pageSize,
+                      }),
+                    })
+                  }
+                : undefined
             }
             rowCount={showAll ? total : undefined}
             loading={showAll && patientsQuery.isFetching}
