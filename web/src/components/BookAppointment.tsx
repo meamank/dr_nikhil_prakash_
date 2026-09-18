@@ -54,9 +54,20 @@ export default function BookAppointment() {
     clinicLabel: string;
   } | null>(null);
 
-  const { min, max } = allowedBookingDates();
-  const [date, setDate] = useState(min);
+  const [dateBounds, setDateBounds] = useState<{
+    min: string;
+    max: string;
+  } | null>(null);
+  const [date, setDate] = useState("");
+  const min = dateBounds?.min ?? "";
+  const max = dateBounds?.max ?? "";
   const ageNum = age.trim() === "" ? undefined : Number(age);
+
+  useEffect(() => {
+    const nextBounds = allowedBookingDates();
+    setDateBounds(nextBounds);
+    setDate(nextBounds.min);
+  }, []);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -230,7 +241,7 @@ export default function BookAppointment() {
                 setMobile("");
                 setAge("");
                 setGender("");
-                setDate(min);
+                setDate(dateBounds?.min ?? "");
                 setOtpSent(false);
                 setOtpCode("");
                 setResendIn(0);
@@ -379,8 +390,8 @@ export default function BookAppointment() {
                   type="date"
                   required
                   value={date}
-                  min={min}
-                  max={max}
+                  min={min || undefined}
+                  max={max || undefined}
                   onChange={(e) => setDate(e.target.value)}
                   className={inputClasses}
                 />

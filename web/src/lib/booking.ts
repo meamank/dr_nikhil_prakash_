@@ -87,11 +87,29 @@ export async function createBookingAppointment(input: {
   }>("/api/booking/appointments", input);
 }
 
+function todayIST(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const values = Object.fromEntries(
+    parts
+      .filter(({ type }) => type !== "literal")
+      .map(({ type, value }) => [type, value]),
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function addCalendarDays(date: string, days: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  const result = new Date(Date.UTC(year, month - 1, day + days));
+  return result.toISOString().slice(0, 10);
+}
+
 /** Today + 2 days in IST, as YYYY-MM-DD strings for the date picker. */
 export function allowedBookingDates(): { min: string; max: string } {
-  const now = new Date();
-  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  const min = ist.toISOString().slice(0, 10);
-  const maxD = new Date(ist.getTime() + 2 * 24 * 60 * 60 * 1000);
-  return { min, max: maxD.toISOString().slice(0, 10) };
+  const min = todayIST();
+  return { min, max: addCalendarDays(min, 2) };
 }

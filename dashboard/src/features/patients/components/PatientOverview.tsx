@@ -1,9 +1,15 @@
 import { formatClinicalText } from "@repo/shared"
 import { Activity, CalendarDays, FlaskConical, Pill } from "lucide-react"
-import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts"
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 import type { PatientTabInfo } from "@/components/VisitTabs"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
 import { Separator } from "@/components/ui/separator"
@@ -16,6 +22,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { VisitData } from "./VisitForm"
+
+const logoForestUrl = new URL(
+  "../../../../../web/public/images/logo_forest.svg",
+  import.meta.url
+).href
 
 type TrendPoint = {
   date: string
@@ -42,6 +53,15 @@ function displayDate(date: string): string {
   return year && month && day ? `${day}-${month}-${year}` : date
 }
 
+function prescriptionValidUpto(date: string): string {
+  const [year, month, day] = date.split("-").map(Number)
+  if (![year, month, day].every(Number.isFinite)) return "—"
+
+  const validUpto = new Date(Date.UTC(year, month - 1, day))
+  validUpto.setUTCDate(validUpto.getUTCDate() + 21)
+  return displayDate(validUpto.toISOString().slice(0, 10))
+}
+
 function shortDate(date: string): string {
   const [, month, day] = date.split("-")
   return month && day ? `${day}/${month}` : date
@@ -52,6 +72,152 @@ function numericValue(value: string): number | null {
   if (!match) return null
   const parsed = Number(match[0])
   return Number.isFinite(parsed) ? parsed : null
+}
+
+const printChart = {
+  width: 200,
+  height: 88,
+  left: 18,
+  right: 18,
+  top: 16,
+  bottom: 10,
+} as const
+
+function PrintTrendChart({ trend }: { trend: Trend }) {
+  const domainValues = trend.points.flatMap((point) =>
+    point.secondaryValue === undefined
+      ? [point.value]
+      : [point.value, point.secondaryValue]
+  )
+  const rawMin = Math.min(...domainValues)
+  const rawMax = Math.max(...domainValues)
+  const spread = rawMax - rawMin
+  const padding = spread > 0 ? spread * 0.18 : Math.max(Math.abs(rawMax) * 0.1, 1)
+  const domainMin = rawMin - padding
+  const domainMax = rawMax + padding
+  const plotWidth = printChart.width - printChart.left - printChart.right
+  const plotHeight = printChart.height - printChart.top - printChart.bottom
+
+  const xFor = (index: number) =>
+    trend.points.length === 1
+      ? printChart.width / 2
+      : printChart.left + (index * plotWidth) / (trend.points.length - 1)
+  const yFor = (value: number) =>
+    printChart.top + ((domainMax - value) / (domainMax - domainMin)) * plotHeight
+  const primary = trend.points.map((point, index) => ({
+    x: xFor(index),
+    y: yFor(point.value),
+  }))
+  const secondary = trend.points.flatMap((point, index) =>
+    point.secondaryValue === undefined
+      ? []
+      : [
+          {
+            x: xFor(index),
+            y: yFor(point.secondaryValue),
+            value: point.secondaryValue,
+            pointIndex: index,
+          },
+        ]
+  )
+  const polyline = (points: Array<{ x: number; y: number }>) =>
+    points.map(({ x, y }) => `${x},${y}`).join(" ")
+  const textAnchorFor = (index: number) =>
+    index === 0
+      ? "start"
+      : index === trend.points.length - 1
+        ? "end"
+        : "middle"
+
+  return (
+    <svg
+      className="patient-overview-print-chart"
+      viewBox={`0 0 ${printChart.width} ${printChart.height}`}
+      role="img"
+      aria-label={`${trend.title} trend`}
+    >
+      {[0.25, 0.5, 0.75].map((ratio) => {
+        const y = printChart.top + plotHeight * ratio
+        return (
+          <line
+            key={ratio}
+            x1={printChart.left}
+            x2={printChart.width - printChart.right}
+            y1={y}
+            y2={y}
+            stroke="#d1d5db"
+            strokeDasharray="3 3"
+            strokeWidth="0.8"
+          />
+        )
+      })}
+
+      {secondary.length > 1 && (
+        <polyline
+          points={polyline(secondary)}
+          fill="none"
+          stroke="#6b7280"
+          strokeWidth="1.5"
+        />
+      )}
+      <polyline
+        points={polyline(primary)}
+        fill="none"
+        stroke="#0a3e36"
+        strokeWidth="1.8"
+      />
+
+      {secondary.map(({ x, y, value, pointIndex }) => (
+        <g key={`secondary-${trend.points[pointIndex]?.date ?? pointIndex}`}>
+          <circle
+            cx={x}
+            cy={y}
+            r="2.4"
+            fill="#fff"
+            stroke="#6b7280"
+            strokeWidth="1.4"
+          />
+          {trend.key === "blood-pressure" && (
+            <text
+              x={x}
+              y={Math.min(printChart.height - 2, y + 10)}
+              textAnchor={textAnchorFor(pointIndex)}
+              className="overview-print-chart-value"
+            >
+              {value}
+            </text>
+          )}
+        </g>
+      ))}
+      {primary.map(({ x, y }, index) => {
+        const point = trend.points[index]
+        if (!point) return null
+
+        return (
+          <g key={point.date}>
+            <circle
+              cx={x}
+              cy={y}
+              r="2.5"
+              fill="#fff"
+              stroke="#0a3e36"
+              strokeWidth="1.5"
+            />
+            <text
+              x={x}
+              y={Math.max(9, y - 10)}
+              textAnchor={textAnchorFor(index)}
+              className="overview-print-chart-value"
+            >
+              {trend.key === "blood-pressure"
+                ? point.value
+                : point.displayValue}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
 }
 
 function buildTrends(visits: VisitData[]): Trend[] {
@@ -130,7 +296,7 @@ function buildTrends(visits: VisitData[]): Trend[] {
     trend.latest = trend.points.at(-1)?.displayValue ?? trend.latest
   })
   result.push(...labTrends.values())
-  return result
+  return result.slice(0, 4)
 }
 
 function ChiefComplaintsTable({ visits }: { visits: VisitData[] }) {
@@ -193,7 +359,8 @@ function PreviousMedicalHistoryTable({ visits }: { visits: VisitData[] }) {
                   <ul className="grid gap-0.5">
                     {visit.previousMedicalHistory.map((history) => (
                       <li key={history} className="text-xs wrap-break-word">
-                        · {formatClinicalText(history)}
+                        <span className="previous-history-marker">· </span>
+                        {formatClinicalText(history)}
                       </li>
                     ))}
                   </ul>
@@ -234,7 +401,8 @@ function DiagnosisTable({ visits }: { visits: VisitData[] }) {
                         key={`${diagnosis}-${index}`}
                         className="text-xs wrap-break-word"
                       >
-                        · {formatClinicalText(diagnosis)}
+                        <span className="diagnosis-marker">· </span>
+                        {formatClinicalText(diagnosis)}
                       </li>
                     ))}
                   </ul>
@@ -471,11 +639,11 @@ function TrendCard({ trend }: { trend: Trend }) {
         <ChartContainer
           config={trendConfig}
           initialDimension={{ width: 240, height: 112 }}
-          className="aspect-auto h-28 w-full"
+          className="patient-overview-screen-chart aspect-auto h-28 w-full"
         >
           <LineChart
             data={trend.points}
-            margin={{ top: 8, right: 12, bottom: 0, left: -20 }}
+            margin={{ top: 8, right: 32, bottom: 0, left: -12 }}
           >
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
@@ -492,7 +660,7 @@ function TrendCard({ trend }: { trend: Trend }) {
                   ? ["auto", "auto"]
                   : ["dataMin - 1", "dataMax + 1"]
               }
-              width={44}
+              width={36}
             />
             <Tooltip
               cursor={{ stroke: "var(--border)" }}
@@ -533,6 +701,45 @@ function TrendCard({ trend }: { trend: Trend }) {
             )}
           </LineChart>
         </ChartContainer>
+        <PrintTrendChart trend={trend} />
+      </CardContent>
+    </Card>
+  )
+}
+
+function ClinicalOverviewCard({
+  visits,
+  className,
+}: {
+  visits: VisitData[]
+  className: string
+}) {
+  return (
+    <Card className={`patient-overview-clinical-card ${className}`}>
+      <CardContent className="patient-overview-clinical-grid grid gap-8 py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <div className="patient-overview-clinical-column grid content-start gap-6">
+          <PreviousMedicalHistoryTable visits={visits} />
+          <Separator />
+          <ChiefComplaintsTable visits={visits} />
+          <Separator />
+          <VitalsTable visits={visits} />
+          <Separator />
+          <TestReportsTable visits={visits} />
+          <Separator />
+          <DiagnosisTable visits={visits} />
+          <Separator />
+          <ClinicalRemarksTable visits={visits} />
+        </div>
+
+        <section className="patient-overview-medicines grid content-start gap-3 lg:border-l lg:pl-8">
+          <div className="flex items-center gap-2 border-b pb-3">
+            <Pill className="size-4 text-primary" />
+            <h3 className="font-heading text-sm font-semibold tracking-wide text-primary uppercase">
+              Prescribed medicines
+            </h3>
+          </div>
+          <MedicinesTables visits={visits} />
+        </section>
       </CardContent>
     </Card>
   )
@@ -548,17 +755,25 @@ export function PatientOverview({
   const savedVisits = visits
     .filter((visit) => visit.status === "saved")
     .sort((a, b) => b.visitDate.localeCompare(a.visitDate))
+  const printVisits = savedVisits.slice(0, 3)
   const latestVisit = savedVisits[0]
+  const printPrescriptionVisit = printVisits.find(
+    (visit) => visit.medicinesPrescribed.length > 0
+  )
   const trends = buildTrends(savedVisits)
-  const medicineCount =
-    savedVisits.find((visit) => visit.medicinesPrescribed.length > 0)
-      ?.medicinesPrescribed.length ?? 0
+  const printTrends = buildTrends(printVisits)
 
   return (
-    <div className="grid gap-4">
-      <Card className="gap-0 overflow-hidden py-0">
+    <div className="patient-overview-content grid gap-4">
+      <OverviewPrintHeader />
+      <Card className="patient-overview-patient-card gap-0 overflow-hidden py-0">
         <CardContent className="p-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="patient-overview-facts grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            <PatientFact
+              className="overview-print-patient-name"
+              label="Patient name"
+              value={patient.fullName}
+            />
             <PatientFact label="Patient ID" value={patient.pid} mono accent />
             <PatientFact
               label="Age / Sex"
@@ -573,9 +788,24 @@ export function PatientOverview({
             <PatientFact label="Mobile" value={patient.mobile || "—"} />
 
             <PatientFact
+              className="overview-print-patient-address"
               label="Address"
               value={
                 patient.address ? formatClinicalText(patient.address) : "—"
+              }
+            />
+            <PatientFact
+              className="overview-print-only"
+              label="Weight"
+              value={printPrescriptionVisit?.weight || "—"}
+            />
+            <PatientFact
+              className="overview-print-only"
+              label="Valid Upto"
+              value={
+                printPrescriptionVisit
+                  ? prescriptionValidUpto(printPrescriptionVisit.visitDate)
+                  : "—"
               }
             />
           </div>
@@ -595,61 +825,95 @@ export function PatientOverview({
         </Card>
       ) : (
         <>
-          <section className="grid gap-3">
-            <div className="flex items-center gap-2">
+          <section className="patient-overview-trends-section grid gap-3">
+            <div className="overview-print-trends-heading flex items-center gap-2">
               <Activity className="size-4 text-primary" />
               <h2 className="font-heading text-sm font-semibold tracking-wide uppercase">
                 Clinical trends
               </h2>
             </div>
-            {trends.length ? (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {trends.map((trend) => (
-                  <TrendCard key={trend.key} trend={trend} />
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-6 text-sm text-muted-foreground">
-                  ADD NUMERIC LAB RESULTS OR VITALS TO SEE TRENDS.
-                </CardContent>
-              </Card>
-            )}
+            <div className="patient-overview-screen-trends">
+              {trends.length ? (
+                <div className="patient-overview-trends grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {trends.map((trend) => (
+                    <TrendCard key={trend.key} trend={trend} />
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-6 text-sm text-muted-foreground">
+                    ADD NUMERIC LAB RESULTS OR VITALS TO SEE TRENDS.
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            <div className="patient-overview-print-trends">
+              {printTrends.length ? (
+                <div className="patient-overview-trends grid gap-3">
+                  {printTrends.map((trend) => (
+                    <TrendCard key={trend.key} trend={trend} />
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-6 text-sm text-muted-foreground">
+                    ADD NUMERIC LAB RESULTS OR VITALS TO SEE TRENDS.
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </section>
 
-          <Card>
-            <CardContent className="grid gap-8 py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-              <div className="grid content-start gap-6">
-                <PreviousMedicalHistoryTable visits={savedVisits} />
-                <Separator />
-                <ChiefComplaintsTable visits={savedVisits} />
-                <Separator />
-                <VitalsTable visits={savedVisits} />
-                <Separator />
-                <TestReportsTable visits={savedVisits} />
-                <Separator />
-                <DiagnosisTable visits={savedVisits} />
-                <Separator />
-                <ClinicalRemarksTable visits={savedVisits} />
-              </div>
-
-              <section className="grid content-start gap-3 lg:border-l lg:pl-8">
-                <div className="flex items-center gap-2 border-b pb-3">
-                  <Pill className="size-4 text-primary" />
-                  <h3 className="font-heading text-sm font-semibold tracking-wide text-primary uppercase">
-                    Prescribed medicines
-                  </h3>
-                  <Badge variant="secondary" className="ml-auto">
-                    {medicineCount}
-                  </Badge>
-                </div>
-                <MedicinesTables visits={savedVisits} />
-              </section>
-            </CardContent>
-          </Card>
+          <ClinicalOverviewCard
+            visits={savedVisits}
+            className="patient-overview-screen-clinical-card"
+          />
+          <ClinicalOverviewCard
+            visits={printVisits}
+            className="patient-overview-print-clinical-card"
+          />
         </>
       )}
     </div>
+  )
+}
+
+function OverviewPrintHeader() {
+  return (
+    <header className="overview-print-header">
+      <section className="overview-print-doctor overview-print-doctor-english">
+        <h1>Dr. (Maj) Nikhil Prakash</h1>
+        <div>
+          <p>M.B.B.S. (AFMC),</p>
+          <p>M.D. Medicine (R &amp; R Delhi)</p>
+          <p>MCI Reg. 36462</p>
+        </div>
+        <strong>CONSULTANT PHYSICIAN</strong>
+      </section>
+
+      <section className="overview-print-clinic">
+        <img src={logoForestUrl} alt="Dr. Nikhil Prakash logo" />
+        <strong>CLINIC :</strong>
+        <p>
+          Juran Chapra, Road No.-3,
+          <br />
+          Near SBI Bank, Muzaffarpur
+        </p>
+      </section>
+
+      <section
+        className="overview-print-doctor overview-print-doctor-hindi"
+        lang="hi"
+      >
+        <h1>डॉ. (मेजर) निखिल प्रकाश</h1>
+        <div>
+          <p>एम.बी.बी.एस. (ए.एफ.एम.सी.)</p>
+          <p>एम.डी. मेडिसीन (रिसर्च एण्ड रेफरल, दिल्ली)</p>
+        </div>
+        <strong>कन्सल्टेन्ट फिजिशियन</strong>
+      </section>
+    </header>
   )
 }
 
@@ -658,14 +922,16 @@ function PatientFact({
   value,
   mono = false,
   accent = false,
+  className,
 }: {
   label: string
   value: string
   mono?: boolean
   accent?: boolean
+  className?: string
 }) {
   return (
-    <div>
+    <div className={className}>
       <p className="text-xs font-medium text-muted-foreground uppercase">
         {label}
       </p>

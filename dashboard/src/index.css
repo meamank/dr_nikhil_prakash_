@@ -153,3 +153,516 @@
     background: transparent;
   }
 }
+
+.overview-print-header,
+.overview-print-patient-name,
+.overview-print-only,
+.patient-overview-print-trends,
+.patient-overview-print-clinical-card,
+.patient-overview-print-chart,
+.overview-print-chart-value {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0.13in;
+  }
+
+  html,
+  body,
+  #root {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  [data-slot="sidebar"] {
+    display: none !important;
+  }
+
+  [data-slot="sidebar-wrapper"],
+  [data-slot="sidebar-inset"] {
+    display: block !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [data-slot="sidebar-inset"] {
+    position: static !important;
+  }
+
+  .patient-overview-print,
+  .patient-overview-print * {
+    visibility: visible !important;
+  }
+
+  .patient-overview-print {
+    --background: #fff;
+    --foreground: #111;
+    --card: #fff;
+    --card-foreground: #111;
+    --primary: #0a3e36;
+    --muted: #f4f4f4;
+    --muted-foreground: #4b5563;
+    --secondary: #f4f4f4;
+    --secondary-foreground: #111;
+    --border: #9ca3af;
+    position: absolute;
+    inset: 0;
+    display: block !important;
+    width: 100%;
+    color: #111 !important;
+    background: #fff !important;
+  }
+
+  .overview-print-header {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.9fr) minmax(0, 1fr);
+    align-items: stretch;
+    min-height: 43mm;
+    margin-bottom: 0;
+    border-top: 3px double #111;
+    border-bottom: 3px double #111;
+    padding: 3mm 1mm 2.5mm;
+    color: #111;
+    font-family: Arial, Helvetica, sans-serif;
+    break-inside: avoid;
+  }
+
+  .overview-print-doctor {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    line-height: 1.22;
+  }
+
+  .overview-print-doctor h1 {
+    margin: 0 0 2mm;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 16pt;
+    font-weight: 800;
+    line-height: 1.05;
+  }
+
+  .overview-print-doctor p {
+    margin: 0;
+    font-size: 10.5pt;
+    font-weight: 700;
+  }
+
+  .overview-print-doctor strong {
+    margin-top: 2mm;
+    font-size: 12.5pt;
+    font-weight: 900;
+  }
+
+  .overview-print-doctor-hindi {
+    text-align: right;
+    font-family: "Noto Sans Devanagari", Mangal, sans-serif;
+  }
+
+  .overview-print-doctor-hindi h1 {
+    font-family: "Noto Serif Devanagari", "Noto Sans Devanagari", Mangal, serif;
+    font-size: 18pt;
+  }
+
+  .overview-print-doctor-hindi p {
+    font-size: 11pt;
+  }
+
+  .overview-print-doctor-hindi strong {
+    font-size: 14pt;
+  }
+
+  .overview-print-clinic {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 3mm;
+    text-align: center;
+    line-height: 1.12;
+  }
+
+  .overview-print-clinic img {
+    width: 18mm;
+    height: 16mm;
+    margin-bottom: 1mm;
+    object-fit: contain;
+  }
+
+  .overview-print-clinic strong {
+    color: #a32035;
+    font-size: 12pt;
+    font-weight: 900;
+  }
+
+  .overview-print-clinic p {
+    margin: 1mm 0 0;
+    font-size: 10.5pt;
+    font-weight: 800;
+  }
+
+  .overview-print-patient-name {
+    display: block !important;
+  }
+
+  .overview-print-patient-address {
+    min-width: 0;
+  }
+
+  .overview-print-patient-address > p:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .overview-print-only {
+    display: block !important;
+  }
+
+  .patient-overview-content {
+    gap: 2mm !important;
+    font-size: 8pt;
+  }
+
+  .patient-overview-patient-card [data-slot="card-content"] {
+    padding: 2mm !important;
+  }
+
+  .overview-print-trends-heading {
+    display: none !important;
+  }
+
+  .patient-overview-screen-trends,
+  .patient-overview-screen-clinical-card {
+    display: none !important;
+  }
+
+  .patient-overview-print-trends {
+    display: block !important;
+  }
+
+  .patient-overview-print-clinical-card {
+    display: flex !important;
+  }
+
+  .patient-overview-trends-section {
+    gap: 0 !important;
+  }
+
+  .patient-overview-trends {
+    gap: 1mm !important;
+  }
+
+  .patient-overview-trends [data-slot="card"] {
+    gap: 1mm !important;
+    padding-top: 1.5mm !important;
+    padding-bottom: 1.5mm !important;
+  }
+
+  .patient-overview-trends [data-slot="card-header"] {
+    gap: 1mm !important;
+    padding-right: 1mm !important;
+    padding-left: 1mm !important;
+  }
+
+  .patient-overview-trends [data-slot="card-title"] {
+    font-size: 7pt !important;
+    line-height: 1.05 !important;
+  }
+
+  .patient-overview-trends [data-slot="card-header"] > span {
+    font-size: 6pt !important;
+    line-height: 1 !important;
+  }
+
+  .patient-overview-trends [data-slot="card-content"] {
+    padding-right: 0.5mm !important;
+    padding-left: 0.5mm !important;
+  }
+
+  .patient-overview-screen-chart {
+    display: none !important;
+  }
+
+  .patient-overview-print-chart {
+    display: block !important;
+    width: 100% !important;
+    height: 24mm !important;
+    overflow: visible;
+  }
+
+  .patient-overview-print-chart .overview-print-chart-value {
+    display: inline !important;
+    visibility: visible !important;
+    fill: #111 !important;
+    stroke: #fff !important;
+    stroke-width: 2.5px;
+    paint-order: stroke fill;
+    font-size: 6pt !important;
+    font-weight: 600;
+  }
+
+  .patient-overview-clinical-card [data-slot="card-content"] {
+    padding-top: 3mm !important;
+    padding-bottom: 3mm !important;
+  }
+
+  .patient-overview-print .patient-overview-clinical-card {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .patient-overview-clinical-grid {
+    display: block !important;
+    height: 174mm;
+    column-count: 2;
+    column-fill: auto;
+    column-gap: 3mm;
+  }
+
+  .patient-overview-clinical-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 2mm !important;
+  }
+
+  .patient-overview-clinical-column > [data-slot="separator"] {
+    display: none !important;
+  }
+
+  .patient-overview-clinical-column > section:nth-of-type(1),
+  .patient-overview-clinical-column > section:nth-of-type(2),
+  .patient-overview-clinical-column > section:nth-of-type(4),
+  .patient-overview-clinical-column > section:nth-of-type(5),
+  .patient-overview-clinical-column > section:nth-of-type(6) {
+    grid-column: 1 / -1;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(1)
+    [data-slot="table-cell"]:last-child,
+  .patient-overview-clinical-column
+    > section:nth-of-type(2)
+    [data-slot="table-cell"]:last-child,
+  .patient-overview-clinical-column > section:nth-of-type(1) li,
+  .patient-overview-clinical-column > section:nth-of-type(2) li {
+    font-size: 6pt !important;
+    line-height: 1 !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(1)
+    [data-slot="table-body"] {
+    display: grid !important;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(1)
+    [data-slot="table-row"] {
+    display: block !important;
+    min-width: 0;
+    border-right: 1px solid var(--border);
+    border-bottom: 0 !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(1)
+    [data-slot="table-row"]:last-child {
+    border-right: 0;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(1)
+    [data-slot="table-cell"] {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(1)
+    [data-slot="table-cell"]:first-child {
+    padding-bottom: 0 !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(1)
+    [data-slot="table-cell"]:last-child {
+    padding-top: 1px !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(1)
+    .previous-history-marker {
+    display: none !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(5)
+    [data-slot="table-body"] {
+    display: grid !important;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(5)
+    [data-slot="table-row"] {
+    display: block !important;
+    min-width: 0;
+    border-right: 1px solid var(--border);
+    border-bottom: 0 !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(5)
+    [data-slot="table-row"]:last-child {
+    border-right: 0;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(5)
+    [data-slot="table-cell"] {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(5)
+    [data-slot="table-cell"]:first-child {
+    padding-bottom: 0 !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(5)
+    [data-slot="table-cell"]:last-child {
+    padding-top: 1px !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(5)
+    [data-slot="table-cell"]:last-child,
+  .patient-overview-clinical-column > section:nth-of-type(5) li {
+    font-size: 6pt !important;
+    line-height: 1 !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(5)
+    .diagnosis-marker {
+    display: none !important;
+  }
+
+  .patient-overview-clinical-column > section,
+  .patient-overview-medicines {
+    gap: 1mm !important;
+  }
+
+  .patient-overview-clinical-card h3,
+  .patient-overview-clinical-card h2 {
+    font-size: 7pt !important;
+    line-height: 1.05 !important;
+  }
+
+  .patient-overview-clinical-card [data-slot="table-head"] {
+    padding: 1px 3px !important;
+    font-size: 7pt !important;
+    line-height: 1.05 !important;
+  }
+
+  .patient-overview-clinical-card [data-slot="table-cell"] {
+    padding: 1px 3px !important;
+    font-size: 6pt !important;
+    line-height: 1 !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(3)
+    :is([data-slot="table-head"], [data-slot="table-cell"]) {
+    width: 90px !important;
+    min-width: 90px !important;
+  }
+
+  .patient-overview-clinical-column
+    > section:nth-of-type(4)
+    :is([data-slot="table-head"], [data-slot="table-cell"]) {
+    width: 84px !important;
+    min-width: 84px !important;
+  }
+
+  .patient-overview-clinical-card [data-slot="table-cell"] * {
+    font-size: 6pt !important;
+    line-height: 1 !important;
+  }
+
+  .patient-overview-clinical-column > section > p,
+  .patient-overview-medicines > div:not(:first-child) {
+    font-size: 6pt !important;
+    line-height: 1 !important;
+  }
+
+  .patient-overview-clinical-card ul {
+    gap: 0 !important;
+  }
+
+  .patient-overview-medicines p {
+    font-size: 6pt !important;
+    line-height: 1 !important;
+  }
+
+  .patient-overview-medicines > div:first-child {
+    padding-bottom: 1mm !important;
+  }
+
+  .patient-overview-facts,
+  .patient-overview-trends {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .patient-overview-medicines {
+    width: 100%;
+    margin-top: 3mm;
+    border-left: 0 !important;
+    padding-left: 0 !important;
+    break-inside: avoid-column !important;
+    page-break-inside: avoid !important;
+    -webkit-column-break-inside: avoid;
+  }
+
+  .patient-overview-print [data-slot="card"] {
+    border-color: #9ca3af !important;
+    color: #111 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  .patient-overview-print
+    [data-slot="card"]:not(.patient-overview-clinical-card) {
+    break-inside: avoid;
+  }
+
+  .patient-overview-print [data-slot="table-container"] {
+    overflow: visible !important;
+  }
+
+  .patient-overview-print [data-slot="table-row"],
+  .patient-overview-print svg {
+    break-inside: avoid;
+  }
+
+  .patient-overview-print [data-slot="badge"] {
+    border: 1px solid #9ca3af;
+  }
+}

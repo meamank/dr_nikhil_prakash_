@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PatientOverview } from "@/features/patients/components/PatientOverview"
 import { apiGet, apiPatch, apiPost } from "@/lib/api"
+import { Printer } from "lucide-react"
 import {
   VisitForm,
   type VisitData,
@@ -185,6 +186,17 @@ export function VisitTabs({
             ))}
           </TabsList>
         </div>
+        {active === "overview" && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => window.print()}
+            disabled={visitsQuery.isLoading}
+          >
+            <Printer />
+            Print
+          </Button>
+        )}
         <Button
           size="sm"
           onClick={handleAddVisit}
@@ -200,7 +212,7 @@ export function VisitTabs({
             : "Couldn’t load visits."}
         </p>
       )}
-      <TabsContent value="overview">
+      <TabsContent value="overview" className="patient-overview-print">
         <PatientOverview patient={patient} visits={visitsState} />
       </TabsContent>
       {visitsState.map((d) => (

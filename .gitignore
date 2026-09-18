@@ -53,7 +53,6 @@ Thumbs.db
 *.sw?
 
 # Private
-worker/scripts/seed.ts
 Clinic-Portal-architecture.md
 
 # Design assets (local reference images, not needed in repo)
