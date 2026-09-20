@@ -7,7 +7,7 @@ import * as schema from "./db/schema"
  * Secrets (never commit — set via `wrangler secret put`):
  *   WHATSAPP_TOKEN            — System User token with whatsapp_business_messaging
  *   WHATSAPP_PHONE_NUMBER_ID  — phone_number_id from Meta dashboard
- *   WHATSAPP_OTP_TEMPLATE     — auth template name (default: clinic_otp)
+ *   WHATSAPP_OTP_TEMPLATE     — utility OTP template name (default: appointment_booking)
  *   WHATSAPP_BOOKING_TEMPLATE — booking confirm template (default: booking_confirm)
  *   WHATSAPP_TEMPLATE_LANGUAGE — approved template language (default: en_US)
  *   WHATSAPP_API_VERSION      — Graph API version (default: v21.0)
@@ -62,16 +62,17 @@ async function logMessage(
 }
 
 /**
- * Send a six-letter code using an Authentication template with an OTP
- * copy-code button. The approved template receives the same code in its body
- * and button parameter.
+ * Send a six-letter code using the Utility template.
+ * Body variables are patient name ({{1}}), provider name ({{2}}),
+ * and verification code ({{3}}). The phone-number button is static.
  */
 export async function sendOtpWhatsApp(
   env: WhatsAppEnv,
   mobile10: string,
   code: string,
+  patientName: string,
 ): Promise<{ ok: boolean; providerId?: string; error?: string }> {
-  const template = env.WHATSAPP_OTP_TEMPLATE ?? "clinic_otp"
+  const template = env.WHATSAPP_OTP_TEMPLATE ?? "appointment_booking"
   const language = env.WHATSAPP_TEMPLATE_LANGUAGE ?? "en_US"
   const apiVersion = env.WHATSAPP_API_VERSION ?? "v21.0"
 
@@ -106,13 +107,11 @@ export async function sendOtpWhatsApp(
             components: [
               {
                 type: "body",
-                parameters: [{ type: "text", text: code }],
-              },
-              {
-                type: "button",
-                sub_type: "url",
-                index: "0",
-                parameters: [{ type: "text", text: code }],
+                parameters: [
+                  { type: "text", text: patientName },
+                  { type: "text", text: "Dr. (Maj) Nikhil Prakash" },
+                  { type: "text", text: code },
+                ],
               },
             ],
           },

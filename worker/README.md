@@ -15,7 +15,7 @@ Create `worker/.dev.vars` for local testing (this file is gitignored):
 ```dotenv
 WHATSAPP_TOKEN=your_meta_access_token
 WHATSAPP_PHONE_NUMBER_ID=your_test_phone_number_id
-WHATSAPP_OTP_TEMPLATE=clinic_otp
+WHATSAPP_OTP_TEMPLATE=appointment_booking
 WHATSAPP_BOOKING_TEMPLATE=booking_confirm
 WHATSAPP_TEMPLATE_LANGUAGE=en_US
 WHATSAPP_API_VERSION=v21.0
@@ -38,9 +38,11 @@ bunx wrangler secret put META_APP_SECRET
 ```
 
 Template names, language, and Graph API version can be non-secret Worker vars.
-The OTP template must be an approved Authentication template with one body
-code parameter and a code button. The booking confirmation template is
-optional; failure to send it does not roll back a confirmed appointment.
+The OTP template must be an approved Utility template with three body
+parameters: patient name, doctor name, and the six-letter code. Its phone
+number button is static and needs no send-time parameter. The booking
+confirmation template is optional; failure to send it does not roll back a
+confirmed appointment.
 
 Configure the Meta production webhook with:
 
