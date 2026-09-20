@@ -117,7 +117,7 @@ booking.post("/otp/request", async (c) => {
     expiresAt: new Date(now.getTime() + OTP_EXPIRY_MS),
   })
 
-  const sent = await sendOtpWhatsApp(c.env, mobile, code, patientName)
+  const sent = await sendOtpWhatsApp(c.env, mobile, code)
   if (!sent.ok) {
     await db.delete(schema.bookingOtps).where(eq(schema.bookingOtps.id, id))
     console.error("WhatsApp OTP send failed", sent.error)

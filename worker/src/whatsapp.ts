@@ -62,15 +62,14 @@ async function logMessage(
 }
 
 /**
- * Send a six-letter code using the temporary Utility template.
- * Body variables are patient name ({{1}}), provider name ({{2}}),
- * and verification code ({{3}}).
+ * Send a six-letter code using an Authentication template with an OTP
+ * copy-code button. The approved template receives the same code in its body
+ * and button parameter.
  */
 export async function sendOtpWhatsApp(
   env: WhatsAppEnv,
   mobile10: string,
   code: string,
-  patientName: string,
 ): Promise<{ ok: boolean; providerId?: string; error?: string }> {
   const template = env.WHATSAPP_OTP_TEMPLATE ?? "clinic_otp"
   const language = env.WHATSAPP_TEMPLATE_LANGUAGE ?? "en_US"
@@ -107,11 +106,13 @@ export async function sendOtpWhatsApp(
             components: [
               {
                 type: "body",
-                parameters: [
-                  { type: "text", text: patientName },
-                  { type: "text", text: "Dr (Maj) Nikhil Prakash" },
-                  { type: "text", text: code },
-                ],
+                parameters: [{ type: "text", text: code }],
+              },
+              {
+                type: "button",
+                sub_type: "url",
+                index: "0",
+                parameters: [{ type: "text", text: code }],
               },
             ],
           },
