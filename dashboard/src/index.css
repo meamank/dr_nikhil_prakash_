@@ -157,6 +157,7 @@
 .overview-print-header,
 .overview-print-patient-name,
 .overview-print-only,
+.overview-print-footer,
 .patient-overview-print-trends,
 .patient-overview-print-clinical-card,
 .patient-overview-print-chart,
@@ -338,6 +339,28 @@
     padding: 2mm !important;
   }
 
+  .patient-overview-print .patient-overview-patient-card[data-slot="card"] {
+    overflow: visible !important;
+    border-width: 0 0 1px !important;
+    border-style: solid !important;
+    border-color: #111 !important;
+    border-radius: 0 !important;
+  }
+
+  .overview-print-footer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: block !important;
+    border-top: 1px solid #111;
+    padding-top: 1mm;
+    font-size: 7pt;
+    font-weight: 600;
+    line-height: 1;
+    text-align: left;
+  }
+
   .overview-print-trends-heading {
     display: none !important;
   }
@@ -357,6 +380,10 @@
 
   .patient-overview-trends-section {
     gap: 0 !important;
+  }
+
+  .patient-overview-trends-section.patient-overview-print-no-trends {
+    display: none !important;
   }
 
   .patient-overview-trends {
@@ -424,7 +451,7 @@
 
   .patient-overview-clinical-grid {
     display: block !important;
-    height: 174mm;
+    height: 167mm;
     column-count: 2;
     column-fill: auto;
     column-gap: 3mm;
@@ -443,7 +470,8 @@
   .patient-overview-clinical-column > section:nth-of-type(2),
   .patient-overview-clinical-column > section:nth-of-type(4),
   .patient-overview-clinical-column > section:nth-of-type(5),
-  .patient-overview-clinical-column > section:nth-of-type(6) {
+  .patient-overview-clinical-column > section:nth-of-type(6),
+  .patient-overview-clinical-column > section:nth-of-type(7) {
     grid-column: 1 / -1;
   }
 

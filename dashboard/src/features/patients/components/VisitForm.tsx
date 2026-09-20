@@ -87,7 +87,7 @@ const bristolLabels: Record<
   "7": "Bristol 7: Watery, no solid pieces",
 }
 
-function t2dmSummary(value: T2dmAssessment): string[] {
+export function t2dmSummary(value: T2dmAssessment): string[] {
   const entries: string[] = []
   if (value.symptomsDuration)
     entries.push(`Duration of symptoms: ${value.symptomsDuration}`)
@@ -124,7 +124,7 @@ function t2dmSummary(value: T2dmAssessment): string[] {
   return entries
 }
 
-function ibsSummary(value: IbsAssessment): string[] {
+export function ibsSummary(value: IbsAssessment): string[] {
   const entries = ibsCheckboxLabels
     .filter(({ key }) => value[key] === true)
     .map(({ label }) => label)

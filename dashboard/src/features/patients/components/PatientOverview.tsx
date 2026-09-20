@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { VisitData } from "./VisitForm"
+import { ibsSummary, t2dmSummary, type VisitData } from "./VisitForm"
 
 const logoForestUrl = new URL(
   "../../../../../web/public/images/logo_forest.svg",
@@ -707,12 +707,58 @@ function TrendCard({ trend }: { trend: Trend }) {
   )
 }
 
+function DiseaseAssessmentsTable({ visits }: { visits: VisitData[] }) {
+  const rows = visits.flatMap((visit) => {
+    const assessments: Array<{ type: string; items: string[] }> = []
+    if (visit.t2dmAssessment) {
+      const items = t2dmSummary(visit.t2dmAssessment)
+      if (items.length > 0) assessments.push({ type: "T2DM", items })
+    }
+    if (visit.ibsAssessment) {
+      const items = ibsSummary(visit.ibsAssessment)
+      if (items.length > 0) assessments.push({ type: "IBS", items })
+    }
+    return assessments.map((assessment) => ({
+      ...assessment,
+      visitId: visit.id,
+      visitDate: visit.visitDate,
+    }))
+  })
+
+  if (rows.length === 0) return null
+
+  return (
+    <section className="patient-overview-disease-assessments grid gap-2">
+      <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
+        Disease assessments
+      </h3>
+      <Table containerClassName="subtle-scrollbar">
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={`${row.visitId}-${row.type}`}>
+              <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
+                {displayDate(row.visitDate)}
+              </TableCell>
+              <TableCell className="text-xs wrap-break-word whitespace-normal">
+                <strong>{row.type}:</strong>{" "}
+                {row.items.map(formatClinicalText).join(" · ")}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </section>
+  )
+}
+
 function ClinicalOverviewCard({
   visits,
   className,
+  showAssessments = false,
 }: {
   visits: VisitData[]
   className: string
+  showAssessments?: boolean
 }) {
   return (
     <Card className={`patient-overview-clinical-card ${className}`}>
@@ -729,6 +775,7 @@ function ClinicalOverviewCard({
           <DiagnosisTable visits={visits} />
           <Separator />
           <ClinicalRemarksTable visits={visits} />
+          {showAssessments && <DiseaseAssessmentsTable visits={visits} />}
         </div>
 
         <section className="patient-overview-medicines grid content-start gap-3 lg:border-l lg:pl-8">
@@ -825,7 +872,9 @@ export function PatientOverview({
         </Card>
       ) : (
         <>
-          <section className="patient-overview-trends-section grid gap-3">
+          <section
+            className={`patient-overview-trends-section grid gap-3${printVisits.length === 1 ? " patient-overview-print-no-trends" : ""}`}
+          >
             <div className="overview-print-trends-heading flex items-center gap-2">
               <Activity className="size-4 text-primary" />
               <h2 className="font-heading text-sm font-semibold tracking-wide uppercase">
@@ -872,7 +921,11 @@ export function PatientOverview({
           <ClinicalOverviewCard
             visits={printVisits}
             className="patient-overview-print-clinical-card"
+            showAssessments
           />
+          <footer className="overview-print-footer">
+            Valid for 21 days only
+          </footer>
         </>
       )}
     </div>
