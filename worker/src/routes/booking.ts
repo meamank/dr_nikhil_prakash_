@@ -627,6 +627,203 @@ booking.get("/dashboard-chart", async (c) => {
   })
 })
 
+// GET /api/booking/reports?period=1d|7d|30d|90d|180d&from=&to=&clinic=
+// Operational appointment and payment report for staff reconciliation.
+booking.get("/reports", async (c) => {
+  const session = await createAuth(c.env).api.getSession({
+    headers: c.req.raw.headers,
+  })
+  if (!session) return bad(c, "Sign in to view reports", 401)
+  if (session.user.role !== "staff" && session.user.role !== "admin") {
+    return bad(c, "Staff access required", 403)
+  }
+
+  const requestedPeriod = c.req.query("period")
+  const period = ["1d", "7d", "30d", "90d", "180d"].includes(
+    requestedPeriod ?? "",
+  )
+    ? (requestedPeriod as "1d" | "7d" | "30d" | "90d" | "180d")
+    : "1d"
+  const periodDays = Number(period.slice(0, -1))
+  const requestedFrom = c.req.query("from")
+  const requestedTo = c.req.query("to")
+  const customRequested =
+    requestedFrom !== undefined || requestedTo !== undefined
+  const validCustomRange =
+    /^\d{4}-\d{2}-\d{2}$/.test(requestedFrom ?? "") &&
+    /^\d{4}-\d{2}-\d{2}$/.test(requestedTo ?? "")
+  if (customRequested && !validCustomRange) {
+    return bad(c, "Select a valid report date range")
+  }
+
+  const today = startOfDayIST(new Date())
+  const start = validCustomRange
+    ? startOfDayIST(new Date(`${requestedFrom}T00:00:00+05:30`))
+    : new Date(today.getTime() - (periodDays - 1) * 24 * 60 * 60 * 1000)
+  const lastDay = validCustomRange
+    ? startOfDayIST(new Date(`${requestedTo}T00:00:00+05:30`))
+    : today
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(lastDay.getTime()) ||
+    lastDay < start
+  ) {
+    return bad(c, "Select a valid report date range")
+  }
+  const end = new Date(lastDay.getTime() + 24 * 60 * 60 * 1000)
+  const clinicQuery = c.req.query("clinic")
+  const clinic =
+    clinicQuery === "juran_chhapra" || clinicQuery === "bhagwanpur"
+      ? clinicQuery
+      : null
+
+  const conditions = [
+    gte(schema.appointments.scheduledAt, start),
+    lt(schema.appointments.scheduledAt, end),
+  ]
+  if (clinic) conditions.push(eq(schema.appointments.clinic, clinic))
+
+  const rows = await createDb(c.env.DB)
+    .select({
+      id: schema.appointments.id,
+      patientPid: schema.appointments.patientPid,
+      patientName: schema.appointments.patientName,
+      patientMobile: schema.appointments.patientMobile,
+      clinic: schema.appointments.clinic,
+      queueNumber: schema.appointments.queueNumber,
+      scheduledAt: schema.appointments.scheduledAt,
+      status: schema.appointments.status,
+      paymentStatus: schema.appointments.paymentStatus,
+      paymentMode: schema.appointments.paymentMode,
+    })
+    .from(schema.appointments)
+    .where(and(...conditions))
+    .orderBy(
+      desc(schema.appointments.scheduledAt),
+      desc(schema.appointments.queueNumber),
+    )
+
+  type DailyReport = {
+    date: string
+    total: number
+    paid: number
+    foc: number
+    refunded: number
+    notPaid: number
+    cashRevenue: number
+    upiRevenue: number
+    unallocatedRevenue: number
+    revenue: number
+  }
+  const summary = {
+    totalAppointments: rows.length,
+    paidAppointments: 0,
+    focAppointments: 0,
+    refundedAppointments: 0,
+    notPaidAppointments: 0,
+    cashPaidAppointments: 0,
+    upiPaidAppointments: 0,
+    unallocatedPaidAppointments: 0,
+    cashRefundedAppointments: 0,
+    upiRefundedAppointments: 0,
+    unallocatedRefundedAppointments: 0,
+  }
+  const days = new Map<string, DailyReport>()
+  const dateInIst = (date: Date) =>
+    new Date(date.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+  for (const row of rows) {
+    const dayKey = dateInIst(row.scheduledAt)
+    const day = days.get(dayKey) ?? {
+      date: dayKey,
+      total: 0,
+      paid: 0,
+      foc: 0,
+      refunded: 0,
+      notPaid: 0,
+      cashRevenue: 0,
+      upiRevenue: 0,
+      unallocatedRevenue: 0,
+      revenue: 0,
+    }
+    day.total += 1
+
+    if (row.paymentStatus === "paid") {
+      summary.paidAppointments += 1
+      day.paid += 1
+      day.revenue += APPOINTMENT_FEE_INR
+      if (row.paymentMode === "cash") {
+        summary.cashPaidAppointments += 1
+        day.cashRevenue += APPOINTMENT_FEE_INR
+      } else if (row.paymentMode === "upi") {
+        summary.upiPaidAppointments += 1
+        day.upiRevenue += APPOINTMENT_FEE_INR
+      } else {
+        summary.unallocatedPaidAppointments += 1
+        day.unallocatedRevenue += APPOINTMENT_FEE_INR
+      }
+    } else if (row.paymentStatus === "foc") {
+      summary.focAppointments += 1
+      day.foc += 1
+    } else if (row.paymentStatus === "refunded") {
+      summary.refundedAppointments += 1
+      day.refunded += 1
+      if (row.paymentMode === "cash") summary.cashRefundedAppointments += 1
+      else if (row.paymentMode === "upi") summary.upiRefundedAppointments += 1
+      else summary.unallocatedRefundedAppointments += 1
+    } else {
+      summary.notPaidAppointments += 1
+      day.notPaid += 1
+    }
+    days.set(dayKey, day)
+  }
+
+  const paidTotal = summary.paidAppointments * APPOINTMENT_FEE_INR
+  const refundTotal = summary.refundedAppointments * APPOINTMENT_FEE_INR
+  const cashPaidTotal = summary.cashPaidAppointments * APPOINTMENT_FEE_INR
+  const upiPaidTotal = summary.upiPaidAppointments * APPOINTMENT_FEE_INR
+  const unallocatedPaidTotal =
+    summary.unallocatedPaidAppointments * APPOINTMENT_FEE_INR
+  const cashRefundTotal = summary.cashRefundedAppointments * APPOINTMENT_FEE_INR
+  const upiRefundTotal = summary.upiRefundedAppointments * APPOINTMENT_FEE_INR
+  const unallocatedRefundTotal =
+    summary.unallocatedRefundedAppointments * APPOINTMENT_FEE_INR
+
+  return c.json({
+    period: validCustomRange ? "custom" : period,
+    from: dateInIst(start),
+    to: dateInIst(lastDay),
+    clinic: clinic ?? "all",
+    appointmentFee: APPOINTMENT_FEE_INR,
+    summary: {
+      ...summary,
+      grossRecordedCollections: paidTotal + refundTotal,
+      refunds: refundTotal,
+      netRevenue: paidTotal,
+      cashCollected: cashPaidTotal + cashRefundTotal,
+      cashRefunded: cashRefundTotal,
+      expectedCash: cashPaidTotal,
+      upiCollected: upiPaidTotal + upiRefundTotal,
+      upiRefunded: upiRefundTotal,
+      expectedUpi: upiPaidTotal,
+      unallocatedCollected: unallocatedPaidTotal + unallocatedRefundTotal,
+      unallocatedRefunded: unallocatedRefundTotal,
+      unallocatedNet: unallocatedPaidTotal,
+    },
+    daily: [...days.values()].sort((a, b) => b.date.localeCompare(a.date)),
+    appointments: rows.map((row) => ({
+      ...row,
+      reportDate: dateInIst(row.scheduledAt),
+      netAmount:
+        row.paymentStatus === "paid"
+          ? APPOINTMENT_FEE_INR
+          : row.paymentStatus === "refunded"
+            ? -APPOINTMENT_FEE_INR
+            : 0,
+    })),
+  })
+})
+
 booking.get("/appointments", async (c) => {
   const clinic = c.req.query("clinic")
   const dateStr = c.req.query("date")
@@ -685,6 +882,7 @@ booking.patch("/appointments/:id", async (c) => {
       clinic?: "juran_chhapra" | "bhagwanpur"
       date?: string
       status?: "not_paid" | "paid" | "foc" | "refunded" | "in_progress" | "done" | "no_show"
+      paymentMode?: "cash" | "upi"
     }>()
     .catch(() => null)
   if (!body) return bad(c, "Invalid body")
@@ -699,6 +897,13 @@ booking.patch("/appointments/:id", async (c) => {
   if (!appt) return bad(c, "Appointment not found", 404)
 
   const patch: Partial<typeof schema.appointments.$inferInsert> = {}
+  if (
+    body.paymentMode !== undefined &&
+    body.paymentMode !== "cash" &&
+    body.paymentMode !== "upi"
+  ) {
+    return bad(c, "Invalid payment mode")
+  }
   if (body.patientName !== undefined) {
     const name = body.patientName.trim()
     if (name.length < 2) return bad(c, "Enter the patient's full name")
@@ -764,7 +969,10 @@ booking.patch("/appointments/:id", async (c) => {
     }
     if (body.status === "paid" && appt.patientPid) {
       patch.paymentStatus = "paid"
-      patch.paymentMode = "cash"
+      patch.paymentMode =
+        body.paymentMode ??
+        (appt.paymentStatus === "paid" ? appt.paymentMode : null) ??
+        "cash"
     }
     if (body.status === "foc" && appt.patientPid) {
       patch.paymentStatus = "foc"
@@ -774,6 +982,11 @@ booking.patch("/appointments/:id", async (c) => {
     if (body.status === "refunded") {
       patch.paymentStatus = "refunded"
     }
+  } else if (body.paymentMode !== undefined) {
+    if (appt.paymentStatus !== "paid") {
+      return bad(c, "Payment mode can only be set on a paid appointment")
+    }
+    patch.paymentMode = body.paymentMode
   }
   if (Object.keys(patch).length === 0) return bad(c, "Nothing to update")
 
@@ -907,20 +1120,33 @@ booking.delete("/appointments/:id", async (c) => {
 })
 
 // POST /api/booking/appointments/:id/mark-paid (staff-only — TODO: require staff session)
-// Body: { pid?: string, paymentStatus?: "paid" | "foc" } — if an existing
+// Body: { pid?: string, paymentStatus?: "paid" | "foc",
+//         paymentMode?: "cash" | "upi" } — if an existing
 // PID is given, link to it (old patient). Otherwise generate a new PID +
 // patients row (new patient).
 booking.post("/appointments/:id/mark-paid", async (c) => {
   const id = c.req.param("id")
   const body = await c.req
-    .json<{ pid?: string; paymentStatus?: "paid" | "foc" }>()
+    .json<{
+      pid?: string
+      paymentStatus?: "paid" | "foc"
+      paymentMode?: "cash" | "upi"
+    }>()
     .catch(() => null)
   const paymentStatus = body?.paymentStatus ?? "paid"
   if (paymentStatus !== "paid" && paymentStatus !== "foc") {
     return bad(c, "Invalid payment status")
   }
   const appointmentStatus = paymentStatus === "foc" ? "foc" : "paid"
-  const paymentMode = paymentStatus === "paid" ? "cash" : null
+  const requestedPaymentMode = body?.paymentMode ?? "cash"
+  if (
+    paymentStatus === "paid" &&
+    requestedPaymentMode !== "cash" &&
+    requestedPaymentMode !== "upi"
+  ) {
+    return bad(c, "Invalid payment mode")
+  }
+  const paymentMode = paymentStatus === "paid" ? requestedPaymentMode : null
   const db = createDb(c.env.DB)
 
   const rows = await db

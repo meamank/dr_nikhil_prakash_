@@ -35,11 +35,13 @@ export function SiteHeader() {
       ? patientTitle
       : routeMatch({ to: "/patients" })
         ? "All Patients"
-        : routeMatch({ to: "/messages" })
-          ? "Messages"
-          : routeMatch({ to: "/settings" })
-            ? "Settings"
-            : "Dashboard"
+        : routeMatch({ to: "/reports" })
+          ? "Reports"
+          : routeMatch({ to: "/messages" })
+            ? "Messages"
+            : routeMatch({ to: "/settings" })
+              ? "Settings"
+              : "Dashboard"
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">

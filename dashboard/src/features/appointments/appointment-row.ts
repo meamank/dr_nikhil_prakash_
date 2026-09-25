@@ -13,6 +13,7 @@ export const appointmentRowSchema = z.object({
   scheduledAt: z.union([z.string(), z.number()]),
   status: z.string(),
   paymentStatus: z.string(),
+  paymentMode: z.enum(["cash", "upi"]).nullable(),
   createdAt: z.union([z.string(), z.number()]),
 })
 

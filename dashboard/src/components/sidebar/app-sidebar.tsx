@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   ClipboardClock,
   UserSearch,
+  FileChartColumn,
   Mail,
   Settings,
   UserCog,
@@ -41,6 +42,11 @@ const adminItems = [
     title: "Patients",
     url: "/patients",
     icon: UserSearch,
+  },
+  {
+    title: "Reports",
+    url: "/reports",
+    icon: FileChartColumn,
   },
   {
     title: "Messages",

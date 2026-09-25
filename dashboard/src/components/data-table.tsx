@@ -120,6 +120,8 @@ function statusBadge(status: string) {
   }
 }
 
+type PaymentMode = "cash" | "upi"
+
 export function DataTable({
   data: initialData,
   onMarkPaid,
@@ -132,7 +134,7 @@ export function DataTable({
   onPaginationChange: onControlledPaginationChange,
 }: {
   data: AppointmentRow[]
-  onMarkPaid?: (id: string) => void
+  onMarkPaid?: (id: string, paymentMode: PaymentMode) => void
   payingId?: string | null
   onStatusChange?: (row: AppointmentRow, status: "foc" | "no_show") => void
   statusChangingId?: string | null
@@ -207,7 +209,16 @@ export function DataTable({
         }),
         columnHelper.accessor("status", {
           header: "Status",
-          cell: ({ row }) => statusBadge(row.original.status),
+          cell: ({ row }) => (
+            <div className="flex items-center gap-1.5">
+              {statusBadge(row.original.status)}
+              {row.original.status === "paid" && row.original.paymentMode && (
+                <Badge variant="outline" className="px-1.5 uppercase">
+                  {row.original.paymentMode}
+                </Badge>
+              )}
+            </div>
+          ),
         }),
         columnHelper.accessor("patientPid", {
           header: "PID",
@@ -235,13 +246,23 @@ export function DataTable({
               {onMarkPaid &&
                 !row.original.patientPid &&
                 row.original.status === "not_paid" && (
-                  <Button
-                    size="sm"
-                    disabled={payingId === row.original.id}
-                    onClick={() => onMarkPaid(row.original.id)}
-                  >
-                    {payingId === row.original.id ? "Issuing…" : "Mark Paid"}
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      disabled={payingId === row.original.id}
+                      onClick={() => onMarkPaid(row.original.id, "cash")}
+                    >
+                      {payingId === row.original.id ? "Issuing…" : "Cash"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={payingId === row.original.id}
+                      onClick={() => onMarkPaid(row.original.id, "upi")}
+                    >
+                      UPI
+                    </Button>
+                  </>
                 )}
             </div>
           ),
@@ -346,21 +367,7 @@ export function DataTable({
                   </div>
                   <div className="grid w-28 shrink-0 grid-cols-[1fr_2rem] items-center">
                     <div className="flex justify-center">
-                    {appointment.status !== "not_paid"
-                      ? statusBadge(appointment.status)
-                      : onMarkPaid &&
-                        !appointment.patientPid && (
-                          <Button
-                            size="sm"
-                            className="px-2 text-[10px]"
-                            disabled={payingId === appointment.id}
-                            onClick={() => onMarkPaid(appointment.id)}
-                          >
-                            {payingId === appointment.id
-                              ? "Issuing…"
-                              : "Mark Paid"}
-                          </Button>
-                        )}
+                      {statusBadge(appointment.status)}
                     </div>
                     <Button
                       size="icon"
@@ -386,60 +393,94 @@ export function DataTable({
                   }`}
                 >
                   <div className="overflow-hidden">
-                    <div className="mt-2 grid grid-cols-2 border-t py-2">
-                      <div className="flex items-center gap-2 pr-2">
-                        {onStatusChange && (
-                          <>
+                    <div className="mt-2 space-y-2 border-t py-2">
+                      {onMarkPaid &&
+                        !appointment.patientPid &&
+                        appointment.status === "not_paid" && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">
+                              Mark paid
+                            </span>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                disabled={payingId === appointment.id}
+                                onClick={() =>
+                                  onMarkPaid(appointment.id, "cash")
+                                }
+                              >
+                                {payingId === appointment.id
+                                  ? "Issuing…"
+                                  : "Cash"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={payingId === appointment.id}
+                                onClick={() =>
+                                  onMarkPaid(appointment.id, "upi")
+                                }
+                              >
+                                UPI
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {onStatusChange && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={
+                                  statusChangingId === appointment.id ||
+                                  appointment.status === "foc"
+                                }
+                                onClick={() =>
+                                  onStatusChange(appointment, "foc")
+                                }
+                              >
+                                FOC
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={
+                                  statusChangingId === appointment.id ||
+                                  appointment.status === "no_show"
+                                }
+                                onClick={() =>
+                                  onStatusChange(appointment, "no_show")
+                                }
+                              >
+                                No Show
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          {onEdit && (
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={
-                                statusChangingId === appointment.id ||
-                                appointment.status === "foc"
-                              }
-                              onClick={() =>
-                                onStatusChange(appointment, "foc")
-                              }
+                              onClick={() => onEdit(appointment)}
                             >
-                              FOC
+                              <PencilIcon />
+                              Edit
                             </Button>
+                          )}
+                          {onDelete && (
                             <Button
                               size="sm"
-                              variant="secondary"
-                              disabled={
-                                statusChangingId === appointment.id ||
-                                appointment.status === "no_show"
-                              }
-                              onClick={() =>
-                                onStatusChange(appointment, "no_show")
-                              }
+                              variant="destructive"
+                              onClick={() => onDelete(appointment)}
                             >
-                              No Show
+                              <Trash2Icon />
+                              Delete
                             </Button>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex justify-end gap-2 border-l pl-2">
-                        {onEdit && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onEdit(appointment)}
-                          >
-                            <PencilIcon />
-                            Edit
-                          </Button>
-                        )}
-                        {onDelete && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => onDelete(appointment)}
-                          >
-                            <Trash2Icon />
-                            Delete
-                          </Button>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -25,6 +25,7 @@ export type AppointmentPatch = {
   clinic?: "juran_chhapra" | "bhagwanpur"
   date?: string
   status?: string
+  paymentMode?: "cash" | "upi"
 }
 
 const STATUSES = [
@@ -84,6 +85,7 @@ export function EditAppointmentSheet({
   )
   const [date, setDate] = React.useState("")
   const [status, setStatus] = React.useState<string>("not_paid")
+  const [paymentMode, setPaymentMode] = React.useState<"cash" | "upi">("cash")
 
   React.useEffect(() => {
     if (!open) return
@@ -104,6 +106,7 @@ export function EditAppointmentSheet({
       )
       setDate(toDateInput(appointment.scheduledAt))
       setStatus(appointment.status)
+      setPaymentMode(appointment.paymentMode ?? "cash")
     } else if (mode === "create") {
       setName("")
       setAddress("")
@@ -114,6 +117,7 @@ export function EditAppointmentSheet({
       const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
       setDate(ist.toISOString().slice(0, 10))
       setStatus("not_paid")
+      setPaymentMode("cash")
     }
   }, [appointment, open, mode])
 
@@ -129,6 +133,7 @@ export function EditAppointmentSheet({
       clinic,
       date,
       status,
+      ...(status === "paid" ? { paymentMode } : {}),
     }
     onSave(mode === "edit" ? appointment!.id : null, patch)
   }
@@ -195,21 +200,43 @@ export function EditAppointmentSheet({
             autoFocus
           />
           {mode === "edit" ? (
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <Label htmlFor="edit-appointment-status">Status</Label>
-              <NativeSelect
-                id="edit-appointment-status"
-                className="w-full"
-                value={status}
-                onChange={(event) => setStatus(event.target.value)}
-              >
-                {STATUSES.map((s) => (
-                  <NativeSelectOption key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </div>
+            <>
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <Label htmlFor="edit-appointment-status">Status</Label>
+                <NativeSelect
+                  id="edit-appointment-status"
+                  className="w-full"
+                  value={status}
+                  onChange={(event) => setStatus(event.target.value)}
+                >
+                  {STATUSES.map((s) => (
+                    <NativeSelectOption key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </div>
+              {status === "paid" && (
+                <div className="flex flex-col gap-2 md:col-span-2">
+                  <Label htmlFor="edit-appointment-payment-mode">
+                    Payment mode
+                  </Label>
+                  <NativeSelect
+                    id="edit-appointment-payment-mode"
+                    className="w-full"
+                    value={paymentMode}
+                    onChange={(event) =>
+                      setPaymentMode(
+                        event.target.value === "upi" ? "upi" : "cash"
+                      )
+                    }
+                  >
+                    <NativeSelectOption value="cash">Cash</NativeSelectOption>
+                    <NativeSelectOption value="upi">UPI</NativeSelectOption>
+                  </NativeSelect>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex flex-col gap-2 md:col-span-2">
               <Label>Status</Label>

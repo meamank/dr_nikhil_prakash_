@@ -28,11 +28,10 @@ export default function AddAppointmentPage() {
   const [mobile, setMobile] = useState("")
   const [age, setAge] = useState("")
   const [gender, setGender] = useState("")
-  const [clinic, setClinic] = useState<Clinic>(
-    search.clinic ?? "juran_chhapra"
-  )
+  const [clinic, setClinic] = useState<Clinic>(search.clinic ?? "juran_chhapra")
   const [date, setDate] = useState(search.date ?? todayIST())
   const [status, setStatus] = useState<"not_paid" | "paid" | "foc">("not_paid")
+  const [paymentMode, setPaymentMode] = useState<"cash" | "upi">("cash")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -95,7 +94,7 @@ export default function AddAppointmentPage() {
       if (status === "paid" || status === "foc") {
         const payment = await apiPost<{ pid: string }>(
           `/api/booking/appointments/${encodeURIComponent(appointment.appointmentId)}/mark-paid`,
-          status === "foc" ? { paymentStatus: "foc" } : undefined
+          status === "foc" ? { paymentStatus: "foc" } : { paymentMode }
         )
         toast.success(
           status === "foc"
@@ -109,6 +108,7 @@ export default function AddAppointmentPage() {
         queryClient.invalidateQueries({ queryKey: ["appointments"] }),
         queryClient.invalidateQueries({ queryKey: ["patients"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
       ])
       navigate({
         to: "/appointments",
@@ -181,6 +181,26 @@ export default function AddAppointmentPage() {
                 </NativeSelectOption>
               </NativeSelect>
             </div>
+            {status === "paid" && (
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <Label htmlFor="add-appointment-payment-mode">
+                  Payment mode
+                </Label>
+                <NativeSelect
+                  id="add-appointment-payment-mode"
+                  className="w-full"
+                  value={paymentMode}
+                  onChange={(event) =>
+                    setPaymentMode(
+                      event.target.value === "upi" ? "upi" : "cash"
+                    )
+                  }
+                >
+                  <NativeSelectOption value="cash">Cash</NativeSelectOption>
+                  <NativeSelectOption value="upi">UPI</NativeSelectOption>
+                </NativeSelect>
+              </div>
+            )}
             <div className="flex justify-end gap-2 md:col-span-2">
               <Button type="button" variant="outline" asChild disabled={saving}>
                 <Link to="/appointments" search={{ clinic, date }}>

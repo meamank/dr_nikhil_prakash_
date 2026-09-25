@@ -66,6 +66,7 @@ export default function AppointmentsPage() {
       queryClient.invalidateQueries({ queryKey: ["appointments"] }),
       queryClient.invalidateQueries({ queryKey: ["patients"] }),
       queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      queryClient.invalidateQueries({ queryKey: ["reports"] }),
     ])
   }
   const rows = appointmentsQuery.data ?? []
@@ -99,8 +100,16 @@ export default function AppointmentsPage() {
   }, [lastQueueNumber, setSummary, visibleRows.length])
 
   const markPaidMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiPost(`/api/booking/appointments/${encodeURIComponent(id)}/mark-paid`),
+    mutationFn: ({
+      id,
+      paymentMode,
+    }: {
+      id: string
+      paymentMode: "cash" | "upi"
+    }) =>
+      apiPost(`/api/booking/appointments/${encodeURIComponent(id)}/mark-paid`, {
+        paymentMode,
+      }),
     onSuccess: invalidateAppointmentData,
   })
 
@@ -119,6 +128,7 @@ export default function AppointmentsPage() {
       if (requestedPaymentStatus && !appointment?.patientPid) {
         const details = { ...patch }
         delete details.status
+        delete details.paymentMode
         await apiPatch(
           `/api/booking/appointments/${encodeURIComponent(id)}`,
           details
@@ -127,7 +137,7 @@ export default function AppointmentsPage() {
           `/api/booking/appointments/${encodeURIComponent(id)}/mark-paid`,
           requestedPaymentStatus === "foc"
             ? { paymentStatus: "foc" }
-            : undefined
+            : { paymentMode: patch.paymentMode ?? "cash" }
         )
       }
 
@@ -279,10 +289,12 @@ export default function AppointmentsPage() {
       ) : (
         <DataTable
           data={visibleRows}
-          onMarkPaid={(id) => markPaidMutation.mutate(id)}
+          onMarkPaid={(id, paymentMode) =>
+            markPaidMutation.mutate({ id, paymentMode })
+          }
           payingId={
             markPaidMutation.isPending
-              ? (markPaidMutation.variables ?? null)
+              ? (markPaidMutation.variables?.id ?? null)
               : null
           }
           onStatusChange={(appointment, status) =>
