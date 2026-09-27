@@ -206,7 +206,7 @@ export async function sendBookingConfirmWhatsApp(
                   { type: "text", text: details.patientName },
                   { type: "text", text: details.appointmentDate },
                   { type: "text", text: String(details.queueNumber) },
-                  { type: "text", text: "9801317878" },
+                  { type: "text", text: "8235821231" },
                 ],
               },
             ],

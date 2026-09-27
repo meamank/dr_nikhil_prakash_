@@ -14,7 +14,7 @@ const QUICK_LINKS: QuickLink[] = [
   { label: "About", href: "#about" },
   { label: "Contact us", href: "#reach" },
   { label: "Login to portal", portal: true }, // resolved to the dashboard URL at render time
-  { label: "Book appointment", href: "#book" },
+  { label: "Booking information", href: "#book" },
 ];
 const SOCIALS = [
   { label: "Facebook", Icon: FacebookIcon },

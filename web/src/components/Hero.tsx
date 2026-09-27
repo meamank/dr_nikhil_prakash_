@@ -27,7 +27,7 @@ export default function Hero() {
                   href="#book"
                   className="rounded-pill bg-forest px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-deep"
                 >
-                  Book appointment
+                  Online booking paused
                 </a>
                 <a
                   href="#about"

@@ -104,7 +104,7 @@ export default function Header() {
             href="#book"
             className="hidden rounded-pill bg-forest px-7 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep lg:inline-block"
           >
-            Book appointment
+            Booking paused
           </a>
 
           {/* Mobile menu trigger — Lucide Menu / X icon */}
@@ -162,7 +162,7 @@ export default function Header() {
             onClick={() => setOpen(false)}
             className="mt-2 block rounded-pill bg-forest px-6 py-3 text-center text-sm font-semibold text-white"
           >
-            Book appointment
+            Booking paused
           </a>
         </nav>
       )}

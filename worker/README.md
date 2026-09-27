@@ -16,7 +16,7 @@ Create `worker/.dev.vars` for local testing (this file is gitignored):
 WHATSAPP_TOKEN=your_meta_access_token
 WHATSAPP_PHONE_NUMBER_ID=your_test_phone_number_id
 WHATSAPP_OTP_TEMPLATE=appointment_booking
-WHATSAPP_BOOKING_TEMPLATE=booking_confirm
+WHATSAPP_BOOKING_TEMPLATE=appointment_confirm
 WHATSAPP_TEMPLATE_LANGUAGE=en_US
 WHATSAPP_API_VERSION=v21.0
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=generate_a_long_random_value

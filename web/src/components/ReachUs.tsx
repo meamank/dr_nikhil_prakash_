@@ -4,8 +4,8 @@ const LOCATIONS = [
   {
     name: "Juran Chhapra",
     address: "Road No. 3, Juran Chhapra, Muzaffarpur",
-    phone: "98013 17878",
-    phoneHref: "tel:+919801317878",
+    phone: "82358 21231",
+    phoneHref: "tel:+918235821231",
     hours: "11:00 am – 6:00 pm · Saturday Closed",
     embedSrc:
       "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d940.7833952471781!2d85.3752074081333!3d26.128517593591543!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x39ed11c10c2c298d%3A0x43d53ddae8dfd046!2sDr.%20(Major)%20Nikhil%20Prakash!5e0!3m2!1sen!2sin!4v1788357086880!5m2!1sen!2sin",
@@ -13,8 +13,8 @@ const LOCATIONS = [
   {
     name: "Bhagwanpur",
     address: "Fardogola, Near CityKart, Rewa Road, Bhagwanpur, Muzaffarpur",
-    phone: "98013 17878",
-    phoneHref: "tel:+919801317878",
+    phone: "82358 21231",
+    phoneHref: "tel:+918235821231",
     hours: "7:00 pm – 10:00 pm · Daily",
     embedSrc:
       "https://www.google.com/maps?q=Fardogola,+Near+CityKart,+Rewa+Road,+Bhagwanpur,+Muzaffarpur&z=15&output=embed",

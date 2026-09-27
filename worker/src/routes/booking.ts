@@ -49,6 +49,9 @@ const OTP_EXPIRY_MS = 5 * 60 * 1000
 const OTP_RESEND_MS = 60 * 1000
 const OTP_MAX_ATTEMPTS = 5
 const APPOINTMENT_FEE_INR = 500
+const ONLINE_BOOKING_PAUSED = true
+const ONLINE_BOOKING_PAUSED_MESSAGE =
+  "Online appointment booking is temporarily unavailable. Please contact the clinic."
 
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -75,6 +78,9 @@ function generateOtp(): string {
 
 // POST /api/booking/otp/request
 booking.post("/otp/request", async (c) => {
+  if (ONLINE_BOOKING_PAUSED) {
+    return bad(c, ONLINE_BOOKING_PAUSED_MESSAGE, 503)
+  }
   const body = await c.req
     .json<{ mobile?: string; patientName?: string }>()
     .catch(() => null)
@@ -129,6 +135,9 @@ booking.post("/otp/request", async (c) => {
 
 // POST /api/booking/otp/verify
 booking.post("/otp/verify", async (c) => {
+  if (ONLINE_BOOKING_PAUSED) {
+    return bad(c, ONLINE_BOOKING_PAUSED_MESSAGE, 503)
+  }
   const body = await c.req
     .json<{ mobile?: string; code?: string }>()
     .catch(() => null)
@@ -263,6 +272,9 @@ booking.post("/appointments", async (c) => {
   // Dashboard staff can book on a patient's behalf. Public callers, including
   // signed-in patient accounts, must prove control of the submitted mobile.
   if (!staffUser) {
+    if (ONLINE_BOOKING_PAUSED) {
+      return bad(c, ONLINE_BOOKING_PAUSED_MESSAGE, 503)
+    }
     if (!bookingToken) {
       return bad(c, "Verify the mobile number before booking", 401)
     }

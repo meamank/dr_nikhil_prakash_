@@ -55,11 +55,11 @@ export default function TrustedNetwork() {
             Book an appointment
           </a>
           <a
-            href="tel:+919801317878"
+            href="tel:+918235821231"
             className="flex items-center gap-2 text-[15px] font-semibold text-teal-accent transition-opacity hover:opacity-75"
           >
             <PhoneIcon className="h-4 w-4" />
-            98013 17878
+            82358 21231
           </a>
         </div>
       </div>
