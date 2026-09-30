@@ -15,6 +15,8 @@ export default function CtaSection() {
           alt="Friendly 3D doctor character giving a thumbs up"
           width={900}
           height={900}
+          loading="lazy"
+          decoding="async"
           className="h-72 w-auto drop-shadow-2xl sm:h-96 lg:h-104"
           style={{
             WebkitMaskImage:
@@ -34,7 +36,7 @@ export default function CtaSection() {
         <span className="relative grid h-20 w-20 place-items-center lg:h-32 lg:w-32">
           <svg
             viewBox="0 0 100 100"
-            className="absolute inset-0 h-full w-full animate-spin-slow text-white"
+            className="absolute inset-0 h-full w-full animate-spin-slow text-white motion-reduce:animate-none"
             aria-hidden="true"
           >
             <defs>

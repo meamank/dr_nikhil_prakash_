@@ -1,7 +1,10 @@
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   Banknote,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   IndianRupee,
   ReceiptText,
@@ -110,6 +113,8 @@ const periods: Array<{ value: ReportPeriod; label: string }> = [
   { value: "custom", label: "Custom range" },
 ]
 
+const LEDGER_PAGE_SIZE = 50
+
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
@@ -204,6 +209,7 @@ function MetricCard({
 }
 
 export default function ReportsPage() {
+  const [ledgerPage, setLedgerPage] = useState(0)
   const search = ReportsRoute.useSearch()
   const navigate = ReportsRoute.useNavigate()
   const period = search.period ?? "1d"
@@ -235,8 +241,18 @@ export default function ReportsPage() {
   const report = reportQuery.data
   const summary = report?.summary
   const effectivePeriodValue = period
+  const ledgerPageCount = Math.max(
+    1,
+    Math.ceil((report?.appointments.length ?? 0) / LEDGER_PAGE_SIZE)
+  )
+  const safeLedgerPage = Math.min(ledgerPage, ledgerPageCount - 1)
+  const ledgerStart = safeLedgerPage * LEDGER_PAGE_SIZE
+  const visibleAppointments =
+    report?.appointments.slice(ledgerStart, ledgerStart + LEDGER_PAGE_SIZE) ??
+    []
 
   function choosePeriod(next: ReportPeriod) {
+    setLedgerPage(0)
     if (next === "custom") {
       navigate({
         search: (current) => ({
@@ -259,6 +275,7 @@ export default function ReportsPage() {
   }
 
   function chooseFrom(from: string) {
+    setLedgerPage(0)
     if (period === "1d") {
       navigate({
         search: (current) => ({
@@ -281,6 +298,7 @@ export default function ReportsPage() {
   }
 
   function chooseTo(to: string) {
+    setLedgerPage(0)
     navigate({
       search: (current) => ({
         ...current,
@@ -341,7 +359,8 @@ export default function ReportsPage() {
             <NativeSelect
               id="report-clinic"
               value={clinic}
-              onChange={(event) =>
+              onChange={(event) => {
+                setLedgerPage(0)
                 navigate({
                   search: (current) => ({
                     ...current,
@@ -349,7 +368,7 @@ export default function ReportsPage() {
                       "all" | "juran_chhapra" | "bhagwanpur",
                   }),
                 })
-              }
+              }}
             >
               <NativeSelectOption value="all">All clinics</NativeSelectOption>
               <NativeSelectOption value="juran_chhapra">
@@ -587,7 +606,9 @@ export default function ReportsPage() {
                 <ReceiptText className="size-4" /> Appointment ledger
               </CardTitle>
               <CardDescription>
-                Every appointment included in this report, newest first.
+                {report.appointments.length
+                  ? `Showing ${ledgerStart + 1}–${Math.min(ledgerStart + LEDGER_PAGE_SIZE, report.appointments.length)} of ${report.appointments.length} appointments, newest first.`
+                  : "Every appointment included in this report, newest first."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -606,7 +627,7 @@ export default function ReportsPage() {
                 </TableHeader>
                 <TableBody>
                   {report.appointments.length ? (
-                    report.appointments.map((appointment) => (
+                    visibleAppointments.map((appointment) => (
                       <TableRow key={appointment.id}>
                         <TableCell>
                           {displayDate(appointment.reportDate)}
@@ -654,6 +675,39 @@ export default function ReportsPage() {
                   )}
                 </TableBody>
               </Table>
+              {report.appointments.length > LEDGER_PAGE_SIZE && (
+                <div className="flex items-center justify-between gap-3 border-t px-2 pt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Page {safeLedgerPage + 1} of {ledgerPageCount}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={safeLedgerPage === 0}
+                      onClick={() =>
+                        setLedgerPage(Math.max(0, safeLedgerPage - 1))
+                      }
+                    >
+                      <ChevronLeft /> Previous
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={safeLedgerPage >= ledgerPageCount - 1}
+                      onClick={() =>
+                        setLedgerPage(
+                          Math.min(ledgerPageCount - 1, safeLedgerPage + 1)
+                        )
+                      }
+                    >
+                      Next <ChevronRight />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </>

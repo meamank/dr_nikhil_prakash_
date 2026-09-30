@@ -58,8 +58,12 @@ export default function Hero() {
           <PhotoFrame className="aspect-4/3 rounded-[22px]">
             <div className="h-full overflow-hidden bg-mint">
               <img
-                src="/images/portrait.svg"
+                src="/images/portrait.png"
                 alt="Portrait of Dr. (Maj) Nikhil Prakash"
+                width="640"
+                height="526"
+                decoding="async"
+                fetchPriority="high"
                 className="h-full w-full object-cover object-top"
               />
             </div>

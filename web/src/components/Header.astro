@@ -1,0 +1,183 @@
+---
+import { Menu, X } from "lucide-react";
+import { Logo } from "./Logo";
+
+const portalUrl =
+  (import.meta.env.PUBLIC_PORTAL_URL as string | undefined) ??
+  "http://localhost:5173/login";
+
+const navLinks = [
+  { label: "Home", href: "#" },
+  { label: "About", href: "#about" },
+  { label: "Services", href: "#services" },
+  { label: "Contact", href: "#reach" },
+];
+---
+
+<header class="sticky top-3 z-50">
+  <div class="flex items-center justify-between gap-3 rounded-pill bg-lime px-4 py-2.5 sm:px-6 sm:py-3">
+    <a href="#" class="flex shrink-0 items-center gap-2">
+      <Logo className="h-7 w-7 text-forest" />
+      <span class="text-[15px] font-bold text-forest sm:text-lg">
+        Dr. (Maj) Nikhil Prakash
+      </span>
+    </a>
+
+    <nav class="hidden items-center gap-8 lg:flex" aria-label="Primary">
+      {
+        navLinks.map(({ label, href }, index) => (
+          <a
+            href={href}
+            data-nav-link={label}
+            class:list={[
+              "text-[15px] transition-colors hover:text-forest",
+              index === 0 ? "font-bold text-forest" : "text-ink/75",
+            ]}
+          >
+            {label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="flex items-center gap-3 sm:gap-5">
+      <a
+        href={portalUrl}
+        data-portal-link
+        target="_blank"
+        rel="noopener"
+        class="group flex items-center gap-1.5 text-forest transition-opacity hover:opacity-70"
+        aria-label="Login to patient portal"
+      >
+        <span class="text-left leading-tight">
+          <span class="block text-[13px] font-bold underline-offset-4 group-hover:text-forest/70">
+            Login
+          </span>
+        </span>
+      </a>
+
+      <a
+        href="#book"
+        class="hidden rounded-pill bg-forest px-7 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-deep lg:inline-block"
+      >
+        Booking paused
+      </a>
+
+      <details class="group relative lg:hidden" data-mobile-menu>
+        <summary
+          aria-label="Open menu"
+          class="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-pill bg-forest text-white transition-colors hover:bg-forest-deep sm:h-10 sm:w-10 [&::-webkit-details-marker]:hidden"
+        >
+          <Menu className="h-5 w-5 group-open:hidden" strokeWidth={2.25} />
+          <X
+            className="hidden h-5 w-5 group-open:block"
+            strokeWidth={2.25}
+          />
+        </summary>
+
+        <nav
+          aria-label="Mobile"
+          class="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] rounded-card bg-lime p-5 shadow-lg shadow-forest/10"
+        >
+          <ul class="flex flex-col divide-y divide-forest/10">
+            {
+              navLinks.map(({ label, href }, index) => (
+                <li>
+                  <a
+                    href={href}
+                    data-nav-link={label}
+                    class:list={[
+                      "flex items-center justify-between py-3 text-base",
+                      index === 0 ? "font-bold text-forest" : "text-ink/75",
+                    ]}
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+          <a
+            href={portalUrl}
+            data-portal-link
+            target="_blank"
+            rel="noopener"
+            class="mt-4 block rounded-pill border border-forest px-6 py-3 text-center text-sm font-semibold text-forest"
+          >
+            Login to portal
+          </a>
+          <a
+            href="#book"
+            class="mt-2 block rounded-pill bg-forest px-6 py-3 text-center text-sm font-semibold text-white"
+          >
+            Booking paused
+          </a>
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>
+
+<script>
+  const mobileMenus = document.querySelectorAll<HTMLDetailsElement>(
+    "[data-mobile-menu]",
+  );
+
+  mobileMenus.forEach((menu) => {
+    menu.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        menu.open = false;
+      });
+    });
+  });
+
+  const sections = [
+    ["About", document.getElementById("about")],
+    ["Services", document.getElementById("services")],
+    ["Contact", document.getElementById("reach")],
+  ] as const;
+  let activeSection = "";
+  let navigationFrame = 0;
+
+  function updateNavigation() {
+    const marker = window.scrollY + window.innerHeight * 0.35;
+    let current = "Home";
+    sections.forEach(([label, section]) => {
+      if (section && section.offsetTop <= marker) current = label;
+    });
+    if (current === activeSection) return;
+    activeSection = current;
+    document.querySelectorAll<HTMLElement>("[data-nav-link]").forEach((link) => {
+      const active = link.dataset.navLink === current;
+      link.classList.toggle("font-bold", active);
+      link.classList.toggle("text-forest", active);
+      link.classList.toggle("text-ink/75", !active);
+      if (active) link.setAttribute("aria-current", "true");
+      else link.removeAttribute("aria-current");
+    });
+  }
+
+  function scheduleNavigationUpdate() {
+    mobileMenus.forEach((menu) => {
+      if (menu.open) menu.open = false;
+    });
+    if (navigationFrame) return;
+    navigationFrame = window.requestAnimationFrame(() => {
+      navigationFrame = 0;
+      updateNavigation();
+    });
+  }
+
+  updateNavigation();
+  window.addEventListener("scroll", scheduleNavigationUpdate, { passive: true });
+  window.addEventListener("resize", scheduleNavigationUpdate);
+
+  if (import.meta.env.DEV) {
+    const portalUrl = `${window.location.protocol}//${window.location.hostname}:5173/login`;
+    document.querySelectorAll<HTMLAnchorElement>("[data-portal-link]").forEach(
+      (link) => {
+        link.href = portalUrl;
+      },
+    );
+  }
+</script>

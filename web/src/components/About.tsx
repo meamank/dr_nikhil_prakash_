@@ -70,8 +70,12 @@ export default function TrustedNetwork() {
         <PhotoFrame className="aspect-4/3 rounded-[26px]">
           <div className="h-full overflow-hidden bg-mint">
             <img
-              src="/images/portrait.svg"
+              src="/images/portrait.png"
               alt="Dr. (Maj) Nikhil Prakash — Consultant Physician"
+              width="640"
+              height="526"
+              loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover object-top"
             />
           </div>

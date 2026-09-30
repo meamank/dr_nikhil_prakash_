@@ -1,6 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import Header from "../components/Header";
+import Header from "../components/Header.astro";
 import Hero from "../components/Hero";
 import ServiceCards from "../components/ServiceCards";
 import StatsBar from "../components/StatsBar";
@@ -10,12 +10,11 @@ import BookAppointment from "../components/BookAppointment";
 import ReachUs from "../components/ReachUs";
 import CtaSection from "../components/CtaSection";
 import Footer from "../components/Footer";
-import ViewportBadge from "../components/ViewportBadge";
 ---
 
 <Layout title="Dr. (Maj) Nikhil Prakash — Consultant Physician" description="Unhurried consultations, preventive care, and chronic-disease management. Book an appointment.">
   <div class="mx-auto max-w-360 px-3 pb-3 pt-3 sm:px-6 sm:pb-6 sm:pt-6 lg:px-8 lg:pb-8 lg:pt-8">
-    <Header client:load />
+    <Header />
 
     <main class="mt-4 flex flex-col gap-4 sm:mt-6 sm:gap-5">
       <Hero />
@@ -33,6 +32,4 @@ import ViewportBadge from "../components/ViewportBadge";
       <Footer />
     </div>
   </div>
-
-  <!-- <ViewportBadge client:load /> -->
 </Layout>

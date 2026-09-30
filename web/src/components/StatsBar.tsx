@@ -15,7 +15,7 @@ export default function StatsBar() {
       className="overflow-hidden rounded-pill bg-forest py-4"
       aria-label="Network statistics"
     >
-      <div className="flex w-max animate-marquee items-center gap-12 pr-12">
+      <div className="flex w-max animate-marquee items-center gap-12 pr-12 motion-reduce:animate-none">
         {track.map((stat, i) => (
           <span
             key={`${stat}-${i}`}
