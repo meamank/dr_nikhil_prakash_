@@ -37,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/appointments/")({
         : undefined,
   }),
   loaderDeps: ({ search }) => ({
-    clinic: search.clinic ?? "juran_chhapra",
+    clinic: search.clinic ?? "bhagwanpur",
     date: search.date ?? todayIST(),
   }),
   loader: ({ context, deps }) =>

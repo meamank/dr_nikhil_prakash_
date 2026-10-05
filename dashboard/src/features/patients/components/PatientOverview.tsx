@@ -1,5 +1,5 @@
 import { formatClinicalText } from "@repo/shared"
-import { Activity, CalendarDays, FlaskConical, Pill } from "lucide-react"
+import { Activity, CalendarDays, Pill } from "lucide-react"
 import {
   CartesianGrid,
   Line,
@@ -12,7 +12,6 @@ import {
 import type { PatientTabInfo } from "@/components/VisitTabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
-import { Separator } from "@/components/ui/separator"
 import {
   Table,
   TableBody,
@@ -248,7 +247,7 @@ function buildTrends(visits: VisitData[]): Trend[] {
         date: visit.visitDate,
         label: shortDate(visit.visitDate),
         value: weightValue,
-        displayValue: visit.weight,
+        displayValue: `${visit.weight} Kg`,
       })
     }
 
@@ -304,35 +303,33 @@ function ChiefComplaintsTable({ visits }: { visits: VisitData[] }) {
     (visit) => visit.chiefComplaint.length > 0
   )
 
+  if (visitsWithComplaints.length === 0) return null
+
   return (
-    <section className="grid gap-2">
+    <section data-clinical-section="complaints" className="grid gap-2">
       <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
         Chief complaints
       </h3>
-      {visitsWithComplaints.length > 0 ? (
-        <Table containerClassName="subtle-scrollbar">
-          <TableBody>
-            {visitsWithComplaints.map((visit) => (
-              <TableRow key={visit.id}>
-                <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
-                  {displayDate(visit.visitDate)}
-                </TableCell>
-                <TableCell className="whitespace-normal">
-                  <ul className="grid gap-0.5">
-                    {visit.chiefComplaint.map((complaint) => (
-                      <li key={complaint} className="text-xs wrap-break-word">
-                        · {formatClinicalText(complaint)}
-                      </li>
-                    ))}
-                  </ul>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
-      )}
+      <Table containerClassName="subtle-scrollbar">
+        <TableBody>
+          {visitsWithComplaints.map((visit) => (
+            <TableRow key={visit.id}>
+              <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
+                {displayDate(visit.visitDate)}
+              </TableCell>
+              <TableCell className="whitespace-normal">
+                <ul className="grid gap-0.5">
+                  {visit.chiefComplaint.map((complaint) => (
+                    <li key={complaint} className="text-xs wrap-break-word">
+                      · {formatClinicalText(complaint)}
+                    </li>
+                  ))}
+                </ul>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   )
 }
@@ -342,36 +339,34 @@ function PreviousMedicalHistoryTable({ visits }: { visits: VisitData[] }) {
     (visit) => visit.previousMedicalHistory.length > 0
   )
 
+  if (visitsWithHistory.length === 0) return null
+
   return (
-    <section className="grid gap-2">
+    <section data-clinical-section="history" className="grid gap-2">
       <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
         Previous medical history
       </h3>
-      {visitsWithHistory.length > 0 ? (
-        <Table containerClassName="subtle-scrollbar">
-          <TableBody>
-            {visitsWithHistory.map((visit) => (
-              <TableRow key={visit.id}>
-                <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
-                  {displayDate(visit.visitDate)}
-                </TableCell>
-                <TableCell className="whitespace-normal">
-                  <ul className="grid gap-0.5">
-                    {visit.previousMedicalHistory.map((history) => (
-                      <li key={history} className="text-xs wrap-break-word">
-                        <span className="previous-history-marker">· </span>
-                        {formatClinicalText(history)}
-                      </li>
-                    ))}
-                  </ul>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
-      )}
+      <Table containerClassName="subtle-scrollbar">
+        <TableBody>
+          {visitsWithHistory.map((visit) => (
+            <TableRow key={visit.id}>
+              <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
+                {displayDate(visit.visitDate)}
+              </TableCell>
+              <TableCell className="whitespace-normal">
+                <ul className="grid gap-0.5">
+                  {visit.previousMedicalHistory.map((history) => (
+                    <li key={history} className="text-xs wrap-break-word">
+                      <span className="previous-history-marker">· </span>
+                      {formatClinicalText(history)}
+                    </li>
+                  ))}
+                </ul>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   )
 }
@@ -381,39 +376,37 @@ function DiagnosisTable({ visits }: { visits: VisitData[] }) {
     (visit) => visit.diagnosis.length > 0
   )
 
+  if (visitsWithDiagnosis.length === 0) return null
+
   return (
-    <section className="grid gap-2">
+    <section data-clinical-section="diagnosis" className="grid gap-2">
       <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
         Diagnosis
       </h3>
-      {visitsWithDiagnosis.length > 0 ? (
-        <Table containerClassName="subtle-scrollbar">
-          <TableBody>
-            {visitsWithDiagnosis.map((visit) => (
-              <TableRow key={visit.id}>
-                <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
-                  {displayDate(visit.visitDate)}
-                </TableCell>
-                <TableCell className="whitespace-normal">
-                  <ul className="grid gap-0.5">
-                    {visit.diagnosis.map((diagnosis, index) => (
-                      <li
-                        key={`${diagnosis}-${index}`}
-                        className="text-xs wrap-break-word"
-                      >
-                        <span className="diagnosis-marker">· </span>
-                        {formatClinicalText(diagnosis)}
-                      </li>
-                    ))}
-                  </ul>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
-      )}
+      <Table containerClassName="subtle-scrollbar">
+        <TableBody>
+          {visitsWithDiagnosis.map((visit) => (
+            <TableRow key={visit.id}>
+              <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
+                {displayDate(visit.visitDate)}
+              </TableCell>
+              <TableCell className="whitespace-normal">
+                <ul className="grid gap-0.5">
+                  {visit.diagnosis.map((diagnosis, index) => (
+                    <li
+                      key={`${diagnosis}-${index}`}
+                      className="text-xs wrap-break-word"
+                    >
+                      <span className="diagnosis-marker">· </span>
+                      {formatClinicalText(diagnosis)}
+                    </li>
+                  ))}
+                </ul>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   )
 }
@@ -421,29 +414,27 @@ function DiagnosisTable({ visits }: { visits: VisitData[] }) {
 function ClinicalRemarksTable({ visits }: { visits: VisitData[] }) {
   const visitsWithRemarks = visits.filter((visit) => visit.remarks.trim())
 
+  if (visitsWithRemarks.length === 0) return null
+
   return (
-    <section className="grid gap-2">
+    <section data-clinical-section="remarks" className="grid gap-2">
       <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
         Clinical remarks
       </h3>
-      {visitsWithRemarks.length > 0 ? (
-        <Table containerClassName="subtle-scrollbar">
-          <TableBody>
-            {visitsWithRemarks.map((visit) => (
-              <TableRow key={visit.id}>
-                <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
-                  {displayDate(visit.visitDate)}
-                </TableCell>
-                <TableCell className="text-xs wrap-break-word whitespace-normal">
-                  · {formatClinicalText(visit.remarks)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
-      )}
+      <Table containerClassName="subtle-scrollbar">
+        <TableBody>
+          {visitsWithRemarks.map((visit) => (
+            <TableRow key={visit.id}>
+              <TableCell className="w-24 min-w-24 font-mono text-xs font-semibold tabular-nums">
+                {displayDate(visit.visitDate)}
+              </TableCell>
+              <TableCell className="text-xs wrap-break-word whitespace-normal">
+                · {formatClinicalText(visit.remarks)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   )
 }
@@ -462,57 +453,55 @@ function TestReportsTable({ visits }: { visits: VisitData[] }) {
     ).entries()
   )
 
+  if (reports.length === 0) return null
+
   return (
-    <section className="grid gap-2">
+    <section data-clinical-section="reports" className="grid gap-2">
       <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
         Test reports
       </h3>
-      {reports.length > 0 ? (
-        <Table containerClassName="subtle-scrollbar">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-24 min-w-24" />
-              {dates.map((date) => (
-                <TableHead
-                  key={date}
-                  className="w-24 min-w-24 text-xs font-semibold tabular-nums"
-                >
-                  {displayDate(date)}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tests.map(([testKey, testName]) => (
-              <TableRow key={testKey}>
-                <TableCell className="w-24 min-w-24 text-xs font-semibold wrap-break-word whitespace-normal">
-                  {formatClinicalText(testName)}
-                </TableCell>
-                {dates.map((date) => {
-                  const results = reports
-                    .filter(
-                      (report) =>
-                        report.reportDate === date &&
-                        report.test.trim().toLocaleLowerCase() === testKey
-                    )
-                    .map((report) => formatClinicalText(report.result))
-
-                  return (
-                    <TableCell
-                      key={date}
-                      className="w-24 min-w-24 text-xs wrap-break-word whitespace-pre-line"
-                    >
-                      {results.join("\n")}
-                    </TableCell>
-                  )
-                })}
-              </TableRow>
+      <Table containerClassName="subtle-scrollbar">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-24 min-w-24" />
+            {dates.map((date) => (
+              <TableHead
+                key={date}
+                className="w-24 min-w-24 text-xs font-semibold tabular-nums"
+              >
+                {displayDate(date)}
+              </TableHead>
             ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
-      )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tests.map(([testKey, testName]) => (
+            <TableRow key={testKey}>
+              <TableCell className="w-24 min-w-24 text-xs font-semibold wrap-break-word whitespace-normal">
+                {formatClinicalText(testName)}
+              </TableCell>
+              {dates.map((date) => {
+                const results = reports
+                  .filter(
+                    (report) =>
+                      report.reportDate === date &&
+                      report.test.trim().toLocaleLowerCase() === testKey
+                  )
+                  .map((report) => formatClinicalText(report.result))
+
+                return (
+                  <TableCell
+                    key={date}
+                    className="w-24 min-w-24 text-xs wrap-break-word whitespace-pre-line"
+                  >
+                    {results.join("\n")}
+                  </TableCell>
+                )
+              })}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   )
 }
@@ -521,11 +510,11 @@ function VitalsTable({ visits }: { visits: VisitData[] }) {
   const vitals = [
     {
       label: "BP",
-      value: (visit: VisitData) => visit.bloodPressure || "—",
+      value: (visit: VisitData) => visit.bloodPressure,
     },
     {
       label: "Weight",
-      value: (visit: VisitData) => visit.weight || "—",
+      value: (visit: VisitData) => visit.weight ? `${visit.weight} Kg` : "",
     },
     {
       label: "Chest/Heart Sound",
@@ -534,10 +523,12 @@ function VitalsTable({ visits }: { visits: VisitData[] }) {
           ? visit.otherChestHeartSound || "OTHER"
           : formatClinicalText(visit.chestHeartSound),
     },
-  ]
+  ].filter((vital) => visits.some((visit) => vital.value(visit).trim()))
+
+  if (vitals.length === 0) return null
 
   return (
-    <section className="grid gap-2">
+    <section data-clinical-section="vitals" className="grid gap-2">
       <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
         Vitals
       </h3>
@@ -583,13 +574,7 @@ function MedicinesTables({ visits }: { visits: VisitData[] }) {
   )
   const latestVisitWithMedicines = visitsWithMedicines[0]
 
-  if (!latestVisitWithMedicines) {
-    return (
-      <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-        <FlaskConical className="size-4" /> NO MEDICINES RECORDED
-      </div>
-    )
-  }
+  if (!latestVisitWithMedicines) return null
 
   return (
     <section className="grid gap-2">
@@ -632,7 +617,9 @@ function TrendCard({ trend }: { trend: Trend }) {
           {trend.title}
         </CardTitle>
         <span className="font-mono text-sm font-semibold tabular-nums">
-          {formatClinicalText(trend.latest)}
+          {trend.key === "weight"
+            ? trend.latest
+            : formatClinicalText(trend.latest)}
         </span>
       </CardHeader>
       <CardContent className="px-2 pb-0">
@@ -728,7 +715,10 @@ function DiseaseAssessmentsTable({ visits }: { visits: VisitData[] }) {
   if (rows.length === 0) return null
 
   return (
-    <section className="patient-overview-disease-assessments grid gap-2">
+    <section
+      data-clinical-section="assessments"
+      className="patient-overview-disease-assessments grid gap-2"
+    >
       <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
         Disease assessments
       </h3>
@@ -755,38 +745,46 @@ function ClinicalOverviewCard({
   visits,
   className,
   showAssessments = false,
+  latestVisitHistoryAndComplaints = false,
 }: {
   visits: VisitData[]
   className: string
   showAssessments?: boolean
+  latestVisitHistoryAndComplaints?: boolean
 }) {
+  const historyAndComplaintVisits = latestVisitHistoryAndComplaints
+    ? visits.slice(0, 1)
+    : visits
+  const hasMedicines = visits.some(
+    (visit) => visit.medicinesPrescribed.length > 0
+  )
+
   return (
     <Card className={`patient-overview-clinical-card ${className}`}>
-      <CardContent className="patient-overview-clinical-grid grid gap-8 py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+      <CardContent
+        className={`patient-overview-clinical-grid grid gap-8 py-6 ${hasMedicines ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]" : ""}`}
+      >
         <div className="patient-overview-clinical-column grid content-start gap-6">
-          <PreviousMedicalHistoryTable visits={visits} />
-          <Separator />
-          <ChiefComplaintsTable visits={visits} />
-          <Separator />
+          <PreviousMedicalHistoryTable visits={historyAndComplaintVisits} />
+          <ChiefComplaintsTable visits={historyAndComplaintVisits} />
           <VitalsTable visits={visits} />
-          <Separator />
           <TestReportsTable visits={visits} />
-          <Separator />
           <DiagnosisTable visits={visits} />
-          <Separator />
           <ClinicalRemarksTable visits={visits} />
           {showAssessments && <DiseaseAssessmentsTable visits={visits} />}
         </div>
 
-        <section className="patient-overview-medicines grid content-start gap-3 lg:border-l lg:pl-8">
-          <div className="flex items-center gap-2 border-b pb-3">
-            <Pill className="size-4 text-primary" />
-            <h3 className="font-heading text-sm font-semibold tracking-wide text-primary uppercase">
-              Prescribed medicines
-            </h3>
-          </div>
-          <MedicinesTables visits={visits} />
-        </section>
+        {hasMedicines && (
+          <section className="patient-overview-medicines grid content-start gap-3 lg:border-l lg:pl-8">
+            <div className="flex items-center gap-2 border-b pb-3">
+              <Pill className="size-4 text-primary" />
+              <h3 className="font-heading text-sm font-semibold tracking-wide text-primary uppercase">
+                Prescribed medicines
+              </h3>
+            </div>
+            <MedicinesTables visits={visits} />
+          </section>
+        )}
       </CardContent>
     </Card>
   )
@@ -824,27 +822,28 @@ export function PatientOverview({
             <PatientFact label="Patient ID" value={patient.pid} mono accent />
             <PatientFact
               label="Age / Sex"
-              value={`${patient.ageYears != null ? `${patient.ageYears} YRS` : "—"} / ${patient.gender ? formatClinicalText(patient.gender) : "—"}`}
+              value={[
+                patient.ageYears != null ? `${patient.ageYears} YRS` : "",
+                patient.gender ? formatClinicalText(patient.gender) : "",
+              ]
+                .filter(Boolean)
+                .join(" / ")}
             />
             <PatientFact
               label="Latest visit"
-              value={
-                latestVisit ? displayDate(latestVisit.visitDate) : "NO VISITS"
-              }
+              value={latestVisit ? displayDate(latestVisit.visitDate) : ""}
             />
-            <PatientFact label="Mobile" value={patient.mobile || "—"} />
+            <PatientFact label="Mobile" value={patient.mobile || ""} />
 
             <PatientFact
               className="overview-print-patient-address"
               label="Address"
-              value={
-                patient.address ? formatClinicalText(patient.address) : "—"
-              }
+              value={patient.address ? formatClinicalText(patient.address) : ""}
             />
             <PatientFact
               className="overview-print-only"
               label="Weight"
-              value={printPrescriptionVisit?.weight || "—"}
+              value={latestVisit?.weight ? `${latestVisit.weight} Kg` : ""}
             />
             <PatientFact
               className="overview-print-only"
@@ -852,7 +851,7 @@ export function PatientOverview({
               value={
                 printPrescriptionVisit
                   ? prescriptionValidUpto(printPrescriptionVisit.visitDate)
-                  : "—"
+                  : ""
               }
             />
           </div>
@@ -872,47 +871,42 @@ export function PatientOverview({
         </Card>
       ) : (
         <>
-          <section
-            className={`patient-overview-trends-section grid gap-3${printVisits.length === 1 ? " patient-overview-print-no-trends" : ""}`}
-          >
-            <div className="overview-print-trends-heading flex items-center gap-2">
-              <Activity className="size-4 text-primary" />
-              <h2 className="font-heading text-sm font-semibold tracking-wide uppercase">
-                Clinical trends
-              </h2>
-            </div>
-            <div className="patient-overview-screen-trends">
-              {trends.length ? (
+          {trends.length > 0 && (
+            <section
+              className={[
+                "patient-overview-trends-section grid gap-3",
+                printVisits.length === 1 || printTrends.length === 0
+                  ? "patient-overview-print-no-trends"
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              <div className="overview-print-trends-heading flex items-center gap-2">
+                <Activity className="size-4 text-primary" />
+                <h2 className="font-heading text-sm font-semibold tracking-wide uppercase">
+                  Clinical trends
+                </h2>
+              </div>
+              <div className="patient-overview-screen-trends">
                 <div className="patient-overview-trends grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {trends.map((trend) => (
                     <TrendCard key={trend.key} trend={trend} />
                   ))}
                 </div>
-              ) : (
-                <Card>
-                  <CardContent className="py-6 text-sm text-muted-foreground">
-                    ADD NUMERIC LAB RESULTS OR VITALS TO SEE TRENDS.
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+              </div>
 
-            <div className="patient-overview-print-trends">
-              {printTrends.length ? (
-                <div className="patient-overview-trends grid gap-3">
-                  {printTrends.map((trend) => (
-                    <TrendCard key={trend.key} trend={trend} />
-                  ))}
+              {printTrends.length > 0 && (
+                <div className="patient-overview-print-trends">
+                  <div className="patient-overview-trends grid gap-3">
+                    {printTrends.map((trend) => (
+                      <TrendCard key={trend.key} trend={trend} />
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <Card>
-                  <CardContent className="py-6 text-sm text-muted-foreground">
-                    ADD NUMERIC LAB RESULTS OR VITALS TO SEE TRENDS.
-                  </CardContent>
-                </Card>
               )}
-            </div>
-          </section>
+            </section>
+          )}
 
           <ClinicalOverviewCard
             visits={savedVisits}
@@ -922,6 +916,7 @@ export function PatientOverview({
             visits={printVisits}
             className="patient-overview-print-clinical-card"
             showAssessments
+            latestVisitHistoryAndComplaints
           />
           <footer className="overview-print-footer">
             Valid for 21 days only
@@ -983,6 +978,8 @@ function PatientFact({
   accent?: boolean
   className?: string
 }) {
+  if (!value.trim()) return null
+
   return (
     <div className={className}>
       <p className="text-xs font-medium text-muted-foreground uppercase">

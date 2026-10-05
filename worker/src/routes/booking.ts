@@ -227,7 +227,7 @@ booking.post("/appointments", async (c) => {
   if (age !== null && (age < 0 || age > 130)) {
     return bad(c, "Enter a valid age")
   }
-  const clinic = body?.clinic ?? "juran_chhapra"
+  const clinic = body?.clinic ?? "bhagwanpur"
   if (!["juran_chhapra", "bhagwanpur"].includes(clinic)) {
     return bad(c, "Pick a clinic")
   }
@@ -249,7 +249,7 @@ booking.post("/appointments", async (c) => {
     return bad(c, "Juran Chhapra clinic is closed on Saturdays")
   }
   if (clinic === "bhagwanpur" && weekday === 0) {
-    return bad(c, "Bhagwanpur clinic is closed on Sundays")
+    return bad(c, "Fardo Gola clinic is closed on Sundays")
   }
   if (pickedDay < todayIST) {
     return bad(c, "Date cannot be in the past")
@@ -373,6 +373,14 @@ booking.get("/dashboard-summary", async (c) => {
   }
 
   const db = createDb(c.env.DB)
+  const clinicQuery = c.req.query("clinic")
+  if (clinicQuery && !["all", "juran_chhapra", "bhagwanpur"].includes(clinicQuery)) {
+    return bad(c, "Pick a clinic")
+  }
+  const clinic =
+    clinicQuery === "juran_chhapra" || clinicQuery === "bhagwanpur"
+      ? clinicQuery
+      : undefined
   const requestedPeriod = c.req.query("period")
   const requestedFrom = c.req.query("from")
   const requestedTo = c.req.query("to")
@@ -438,12 +446,15 @@ booking.get("/dashboard-summary", async (c) => {
       })
       .from(schema.appointments)
       .where(
-        start && end
-          ? and(
-              gte(schema.appointments.scheduledAt, start),
-              lt(schema.appointments.scheduledAt, end),
-            )
-          : undefined,
+        and(
+          clinic ? eq(schema.appointments.clinic, clinic) : undefined,
+          start && end
+            ? and(
+                gte(schema.appointments.scheduledAt, start),
+                lt(schema.appointments.scheduledAt, end),
+              )
+            : undefined,
+        ),
       )
     return row
   }
@@ -472,12 +483,22 @@ booking.get("/dashboard-summary", async (c) => {
       })
       .from(schema.patients)
       .where(
-        start && end
-          ? and(
-              gte(schema.patients.createdAt, start),
-              lt(schema.patients.createdAt, end),
-            )
-          : undefined,
+        and(
+          clinic
+            ? sql`exists (
+                select 1 from ${schema.appointments}
+                where (${schema.appointments.patientPid} = ${schema.patients.pid}
+                  or ${schema.appointments.paymentPatientPid} = ${schema.patients.pid})
+                  and ${schema.appointments.clinic} = ${clinic}
+              )`
+            : undefined,
+          start && end
+            ? and(
+                gte(schema.patients.createdAt, start),
+                lt(schema.patients.createdAt, end),
+              )
+            : undefined,
+        ),
       )
     return row
   }
@@ -541,6 +562,14 @@ booking.get("/dashboard-chart", async (c) => {
     return bad(c, "Staff access required", 403)
   }
 
+  const clinicQuery = c.req.query("clinic")
+  if (clinicQuery && !["all", "juran_chhapra", "bhagwanpur"].includes(clinicQuery)) {
+    return bad(c, "Pick a clinic")
+  }
+  const clinic =
+    clinicQuery === "juran_chhapra" || clinicQuery === "bhagwanpur"
+      ? clinicQuery
+      : undefined
   const requestedPeriod = c.req.query("period")
   const requestedFrom = c.req.query("from")
   const requestedTo = c.req.query("to")
@@ -582,31 +611,52 @@ booking.get("/dashboard-chart", async (c) => {
     "date(%COLUMN%, 'unixepoch', '+5 hours', '+30 minutes')"
   const appointmentDate = dateExpression.replace("%COLUMN%", "scheduled_at")
   const patientDate = dateExpression.replace("%COLUMN%", "created_at")
+  const appointmentConditions: string[] = []
+  const patientConditions: string[] = []
+  const appointmentParams: (string | number)[] = []
+  const patientParams: (string | number)[] = []
+  if (start && end) {
+    const startUnix = Math.floor(start.getTime() / 1000)
+    const endUnix = Math.floor(end.getTime() / 1000)
+    appointmentConditions.push("scheduled_at >= ? AND scheduled_at < ?")
+    patientConditions.push("created_at >= ? AND created_at < ?")
+    appointmentParams.push(startUnix, endUnix)
+    patientParams.push(startUnix, endUnix)
+  }
+  if (clinic) {
+    appointmentConditions.push("clinic = ?")
+    appointmentParams.push(clinic)
+    patientConditions.push(`EXISTS (
+      SELECT 1 FROM appointments
+      WHERE (appointments.patient_pid = patients.pid
+        OR appointments.payment_patient_pid = patients.pid)
+        AND appointments.clinic = ?
+    )`)
+    patientParams.push(clinic)
+  }
   const appointmentSql = `
     SELECT ${appointmentDate} AS date,
       count(*) AS appointments,
       sum(case when status = 'paid' then ${APPOINTMENT_FEE_INR} else 0 end) AS revenue
     FROM appointments
-    ${start && end ? "WHERE scheduled_at >= ? AND scheduled_at < ?" : ""}
+    ${appointmentConditions.length ? `WHERE ${appointmentConditions.join(" AND ")}` : ""}
     GROUP BY ${appointmentDate}
   `
   const patientSql = `
     SELECT ${patientDate} AS date, count(*) AS patients
     FROM patients
-    ${start && end ? "WHERE created_at >= ? AND created_at < ?" : ""}
+    ${patientConditions.length ? `WHERE ${patientConditions.join(" AND ")}` : ""}
     GROUP BY ${patientDate}
   `
   const appointmentStatement = c.env.DB.prepare(appointmentSql)
   const patientStatement = c.env.DB.prepare(patientSql)
-  const startUnix = start ? Math.floor(start.getTime() / 1000) : null
-  const endUnix = end ? Math.floor(end.getTime() / 1000) : null
   const [appointmentRows, patientRows] = await Promise.all([
-    (startUnix !== null && endUnix !== null
-      ? appointmentStatement.bind(startUnix, endUnix)
+    (appointmentParams.length
+      ? appointmentStatement.bind(...appointmentParams)
       : appointmentStatement
     ).all<{ date: string; appointments: number; revenue: number }>(),
-    (startUnix !== null && endUnix !== null
-      ? patientStatement.bind(startUnix, endUnix)
+    (patientParams.length
+      ? patientStatement.bind(...patientParams)
       : patientStatement
     ).all<{ date: string; patients: number }>(),
   ])

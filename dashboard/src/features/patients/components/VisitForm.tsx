@@ -5,6 +5,12 @@ import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import {
@@ -191,48 +197,48 @@ function displayDate(date: string): string {
 }
 
 function VisitItemsTable({ title, items }: { title: string; items: string[] }) {
+  if (!items.length) return null
+
   return (
     <section className="grid gap-2">
       <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
         {title}
       </h3>
-      {items.length ? (
-        <Table containerClassName="subtle-scrollbar">
-          <TableBody>
-            <TableRow>
-              <TableCell className="whitespace-normal">
-                <ul className="grid gap-0.5">
-                  {items.map((item, index) => (
-                    <li
-                      key={`${item}-${index}`}
-                      className="text-xs wrap-break-word"
-                    >
-                      · {formatClinicalText(item)}
-                    </li>
-                  ))}
-                </ul>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
-      )}
+      <Table containerClassName="subtle-scrollbar">
+        <TableBody>
+          <TableRow>
+            <TableCell className="whitespace-normal">
+              <ul className="grid gap-0.5">
+                {items.map((item, index) => (
+                  <li
+                    key={`${item}-${index}`}
+                    className="text-xs wrap-break-word"
+                  >
+                    · {formatClinicalText(item)}
+                  </li>
+                ))}
+              </ul>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
     </section>
   )
 }
 
 function VisitVitalsTable({ visit }: { visit: VisitData }) {
   const vitals = [
-    ["BP", visit.bloodPressure || "—"],
-    ["Weight", visit.weight || "—"],
+    ["BP", visit.bloodPressure],
+    ["Weight", visit.weight ? `${visit.weight} Kg` : ""],
     [
       "Chest/Heart Sound",
       visit.chestHeartSound === "Other"
         ? visit.otherChestHeartSound || "OTHER"
         : formatClinicalText(visit.chestHeartSound),
     ],
-  ]
+  ].filter(([, value]) => value.trim())
+
+  if (vitals.length === 0) return null
 
   return (
     <section className="grid gap-2">
@@ -270,89 +276,85 @@ function VisitTestReportsTable({ visit }: { visit: VisitData }) {
     ).entries()
   )
 
+  if (!visit.labReports.length) return null
+
   return (
     <section className="grid gap-2">
       <h3 className="font-heading text-xs font-semibold tracking-wide text-primary uppercase">
         Test reports
       </h3>
-      {visit.labReports.length ? (
-        <Table containerClassName="subtle-scrollbar">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-24 min-w-24" />
-              {dates.map((date) => (
-                <TableHead
-                  key={date}
-                  className="w-24 min-w-24 text-xs font-semibold tabular-nums"
-                >
-                  {displayDate(date)}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tests.map(([testKey, testName]) => (
-              <TableRow key={testKey}>
-                <TableCell className="w-24 min-w-24 text-xs font-semibold wrap-break-word whitespace-normal">
-                  {formatClinicalText(testName)}
-                </TableCell>
-                {dates.map((date) => {
-                  const results = visit.labReports
-                    .filter(
-                      (report) =>
-                        report.reportDate === date &&
-                        report.test.trim().toLocaleLowerCase() === testKey
-                    )
-                    .map((report) => formatClinicalText(report.result))
-                  return (
-                    <TableCell
-                      key={date}
-                      className="w-24 min-w-24 text-xs wrap-break-word whitespace-pre-line"
-                    >
-                      {results.join("\n")}
-                    </TableCell>
-                  )
-                })}
-              </TableRow>
+      <Table containerClassName="subtle-scrollbar">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-24 min-w-24" />
+            {dates.map((date) => (
+              <TableHead
+                key={date}
+                className="w-24 min-w-24 text-xs font-semibold tabular-nums"
+              >
+                {displayDate(date)}
+              </TableHead>
             ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground">NO DATA RECORDED</p>
-      )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tests.map(([testKey, testName]) => (
+            <TableRow key={testKey}>
+              <TableCell className="w-24 min-w-24 text-xs font-semibold wrap-break-word whitespace-normal">
+                {formatClinicalText(testName)}
+              </TableCell>
+              {dates.map((date) => {
+                const results = visit.labReports
+                  .filter(
+                    (report) =>
+                      report.reportDate === date &&
+                      report.test.trim().toLocaleLowerCase() === testKey
+                  )
+                  .map((report) => formatClinicalText(report.result))
+                return (
+                  <TableCell
+                    key={date}
+                    className="w-24 min-w-24 text-xs wrap-break-word whitespace-pre-line"
+                  >
+                    {results.join("\n")}
+                  </TableCell>
+                )
+              })}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   )
 }
 
 function VisitMedicinesTable({ visit }: { visit: VisitData }) {
+  if (!visit.medicinesPrescribed.length) return null
+
   return (
     <section className="grid gap-2">
-      {visit.medicinesPrescribed.length ? (
-        <Table containerClassName="subtle-scrollbar">
-          <TableBody>
-            {visit.medicinesPrescribed.map((medicine, index) => (
-              <TableRow key={`${medicine.name}-${index}`}>
-                <TableCell className="min-w-40 text-xs font-semibold wrap-break-word whitespace-normal">
-                  {formatClinicalText(medicine.name)}
-                  {medicine.notes && (
-                    <p className="mt-0.5 font-mono text-xs font-normal wrap-break-word text-muted-foreground">
-                      Notes: {formatClinicalText(medicine.notes)}
-                    </p>
-                  )}
-                </TableCell>
-                <TableCell className="w-20 min-w-20 text-xs">
-                  {medicine.frequency}
-                </TableCell>
-                <TableCell className="w-20 min-w-20 text-xs">
-                  {medicine.duration}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <p className="text-sm text-muted-foreground">NO MEDICINES RECORDED</p>
-      )}
+      <Table containerClassName="subtle-scrollbar">
+        <TableBody>
+          {visit.medicinesPrescribed.map((medicine, index) => (
+            <TableRow key={`${medicine.name}-${index}`}>
+              <TableCell className="min-w-40 text-xs font-semibold wrap-break-word whitespace-normal">
+                {formatClinicalText(medicine.name)}
+                {medicine.notes && (
+                  <p className="mt-0.5 font-mono text-xs font-normal wrap-break-word text-muted-foreground">
+                    Notes: {formatClinicalText(medicine.notes)}
+                  </p>
+                )}
+              </TableCell>
+              <TableCell className="w-20 min-w-20 text-xs">
+                {medicine.frequency}
+              </TableCell>
+              <TableCell className="w-20 min-w-20 text-xs">
+                {medicine.duration}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </section>
   )
 }
@@ -361,7 +363,7 @@ function getVisitValues(visit: VisitData): VisitValues {
   return {
     visitDate: visit.visitDate,
     bloodPressure: formatClinicalText(visit.bloodPressure),
-    weight: formatClinicalText(visit.weight),
+    weight: visit.weight,
     chestHeartSound: visit.chestHeartSound,
     otherChestHeartSound: formatClinicalText(visit.otherChestHeartSound),
     chiefComplaint: visit.chiefComplaint.map(formatClinicalText),
@@ -478,16 +480,25 @@ export function VisitForm({
   }
 
   async function handleSave() {
-    if (!draft.weight.trim()) {
-      setSaveError("Enter the patient's weight before saving.")
+    const weight = draft.weight.trim()
+    if (
+      !/^\d+(?:\.\d+)?$/.test(weight) ||
+      !Number.isFinite(Number(weight)) ||
+      Number(weight) <= 0
+    ) {
+      setSaveError("Enter a valid weight greater than 0 in kilograms.")
       document.getElementById(`${visit.id}-weight`)?.focus()
       return
     }
     const assessmentDiagnoses = inferredDiagnoses(draft)
-    const valuesToSave =
-      draft.diagnosis.length === 0 && assessmentDiagnoses.length > 0
-        ? { ...draft, diagnosis: assessmentDiagnoses }
-        : draft
+    const valuesToSave = {
+      ...draft,
+      weight,
+      diagnosis:
+        draft.diagnosis.length === 0 && assessmentDiagnoses.length > 0
+          ? assessmentDiagnoses
+          : draft.diagnosis,
+    }
     setSavingVisit(true)
     setSaveError(null)
     try {
@@ -535,7 +546,9 @@ export function VisitForm({
         </Card>
 
         <Card>
-          <CardContent className="grid gap-8 py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <CardContent
+            className={`grid gap-8 py-6 ${visit.medicinesPrescribed.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]" : ""}`}
+          >
             <div className="grid content-start gap-6">
               <VisitItemsTable
                 title="Previous medical history"
@@ -571,12 +584,14 @@ export function VisitForm({
                 )}
             </div>
 
-            <section className="grid content-start gap-3 lg:border-l lg:pl-8">
-              <h3 className="font-heading text-sm font-semibold tracking-wide text-primary uppercase">
-                Prescribed medicines
-              </h3>
-              <VisitMedicinesTable visit={visit} />
-            </section>
+            {visit.medicinesPrescribed.length > 0 && (
+              <section className="grid content-start gap-3 lg:border-l lg:pl-8">
+                <h3 className="font-heading text-sm font-semibold tracking-wide text-primary uppercase">
+                  Prescribed medicines
+                </h3>
+                <VisitMedicinesTable visit={visit} />
+              </section>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -601,18 +616,28 @@ export function VisitForm({
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${visit.id}-weight`}>Weight</Label>
-            <Input
-              id={`${visit.id}-weight`}
-              placeholder="70 kg"
-              value={draft.weight}
-              autoFocus
-              required
-              aria-required="true"
-              onChange={(event) => {
-                const weight = formatClinicalInput(event.currentTarget)
-                setDraft((prev) => ({ ...prev, weight }))
-              }}
-            />
+            <InputGroup>
+              <InputGroupInput
+                id={`${visit.id}-weight`}
+                inputMode="decimal"
+                pattern="[0-9]+([.][0-9]+)?"
+                placeholder="70"
+                value={draft.weight}
+                autoFocus
+                required
+                aria-required="true"
+                aria-describedby={`${visit.id}-weight-unit`}
+                onChange={(event) => {
+                  const weight = event.currentTarget.value.replace(",", ".")
+                  if (/^\d*(?:\.\d*)?$/.test(weight)) {
+                    setDraft((prev) => ({ ...prev, weight }))
+                  }
+                }}
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupText id={`${visit.id}-weight-unit`}>Kg</InputGroupText>
+              </InputGroupAddon>
+            </InputGroup>
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${visit.id}-bp`}>Blood pressure</Label>

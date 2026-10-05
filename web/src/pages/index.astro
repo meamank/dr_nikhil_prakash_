@@ -32,4 +32,19 @@ import Footer from "../components/Footer";
       <Footer />
     </div>
   </div>
+
+  <script>
+    document.querySelectorAll<HTMLButtonElement>("button[data-map-src]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const iframe = document.createElement("iframe");
+        iframe.src = button.dataset.mapSrc!;
+        iframe.title = button.dataset.mapTitle ?? "Clinic location map";
+        iframe.referrerPolicy = "strict-origin-when-cross-origin";
+        iframe.allowFullscreen = true;
+        iframe.className = "h-full w-full border-0";
+        button.replaceWith(iframe);
+        iframe.focus();
+      }, { once: true });
+    });
+  </script>
 </Layout>

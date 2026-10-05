@@ -139,7 +139,7 @@ function displayDate(value: string): string {
 }
 
 function clinicLabel(value: string): string {
-  return value === "bhagwanpur" ? "Bhagwanpur" : "Juran Chhapra"
+  return value === "bhagwanpur" ? "Fardo Gola" : "Juran Chhapra"
 }
 
 function statusLabel(value: string): string {
@@ -213,7 +213,7 @@ export default function ReportsPage() {
   const search = ReportsRoute.useSearch()
   const navigate = ReportsRoute.useNavigate()
   const period = search.period ?? "1d"
-  const clinic = search.clinic ?? "all"
+  const clinic = search.clinic ?? "bhagwanpur"
   const effectivePreset = period === "custom" ? "1d" : period
   const displayedFrom =
     search.from ??
@@ -370,13 +370,13 @@ export default function ReportsPage() {
                 })
               }}
             >
-              <NativeSelectOption value="all">All clinics</NativeSelectOption>
+              <NativeSelectOption value="bhagwanpur">
+                Fardo Gola
+              </NativeSelectOption>
               <NativeSelectOption value="juran_chhapra">
                 Juran Chhapra
               </NativeSelectOption>
-              <NativeSelectOption value="bhagwanpur">
-                Bhagwanpur
-              </NativeSelectOption>
+              <NativeSelectOption value="all">All clinics</NativeSelectOption>
             </NativeSelect>
           </div>
           <Button

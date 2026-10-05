@@ -44,10 +44,11 @@ const inr = new Intl.NumberFormat("en-IN", {
 
 function filterQuery(search: ReturnType<typeof DashboardRoute.useSearch>) {
   const range = search.range ?? "30d"
+  const clinic = search.clinic ?? "bhagwanpur"
   if (range === "custom" && search.from) {
-    return `from=${encodeURIComponent(search.from)}&to=${encodeURIComponent(search.to ?? search.from)}`
+    return `from=${encodeURIComponent(search.from)}&to=${encodeURIComponent(search.to ?? search.from)}&clinic=${clinic}`
   }
-  return `period=${range === "custom" ? "30d" : range}`
+  return `period=${range === "custom" ? "30d" : range}&clinic=${clinic}`
 }
 
 export function ChartAreaInteractive() {

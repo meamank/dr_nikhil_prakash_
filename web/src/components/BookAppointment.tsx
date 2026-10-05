@@ -2,13 +2,13 @@ import { CalendarX2, MapPin } from "lucide-react";
 
 const CLINICS = [
   {
-    name: "Juran Chhapra",
-    hours: "11 am – 6 pm · Saturday closed",
-  },
-  {
-    name: "Bhagwanpur",
+    name: "Fardo Gola",
     hours: "7 pm – 10 pm · Sunday closed",
   },
+  // {
+  //   name: "Juran Chhapra",
+  //   hours: "11 am – 6 pm · Saturday closed",
+  // },
 ];
 
 export default function BookAppointment() {

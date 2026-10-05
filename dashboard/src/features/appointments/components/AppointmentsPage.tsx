@@ -26,8 +26,8 @@ type Clinic = "juran_chhapra" | "bhagwanpur"
 type Pagination = { pageIndex: number; pageSize: number }
 
 const CLINICS: { id: Clinic; label: string }[] = [
+  { id: "bhagwanpur", label: "Fardo Gola" },
   { id: "juran_chhapra", label: "Juran Chhapra" },
-  { id: "bhagwanpur", label: "Bhagwanpur" },
 ]
 
 function matchesAppointmentSearch(appointment: AppointmentRow, query: string) {
@@ -47,7 +47,7 @@ export default function AppointmentsPage() {
   const queryClient = useQueryClient()
   const { setSummary } = useAppointmentsHeader()
   const {
-    clinic = "juran_chhapra",
+    clinic = "bhagwanpur",
     date = todayIST(),
     query: search = "",
     page = 0,
@@ -223,9 +223,9 @@ export default function AppointmentsPage() {
               value={clinic}
               onChange={(event) =>
                 changeClinic(
-                  event.target.value === "bhagwanpur"
-                    ? "bhagwanpur"
-                    : "juran_chhapra"
+                  event.target.value === "juran_chhapra"
+                    ? "juran_chhapra"
+                    : "bhagwanpur"
                 )
               }
             >

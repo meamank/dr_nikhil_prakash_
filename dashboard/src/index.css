@@ -165,6 +165,11 @@
   display: none;
 }
 
+.patient-overview-clinical-column > section + section {
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+}
+
 @media print {
   @page {
     size: A4 portrait;
@@ -468,33 +473,41 @@
     gap: 2mm !important;
   }
 
-  .patient-overview-clinical-column > [data-slot="separator"] {
-    display: none !important;
+  .patient-overview-clinical-column > section + section {
+    border-top: 0;
+    padding-top: 0;
   }
 
-  .patient-overview-clinical-column > section:nth-of-type(1),
-  .patient-overview-clinical-column > section:nth-of-type(2),
-  .patient-overview-clinical-column > section:nth-of-type(4),
-  .patient-overview-clinical-column > section:nth-of-type(5),
-  .patient-overview-clinical-column > section:nth-of-type(6),
-  .patient-overview-clinical-column > section:nth-of-type(7) {
+  .patient-overview-clinical-column > section[data-clinical-section="history"],
+  .patient-overview-clinical-column
+    > section[data-clinical-section="complaints"],
+  .patient-overview-clinical-column > section[data-clinical-section="reports"],
+  .patient-overview-clinical-column
+    > section[data-clinical-section="diagnosis"],
+  .patient-overview-clinical-column > section[data-clinical-section="remarks"],
+  .patient-overview-clinical-column
+    > section[data-clinical-section="assessments"] {
     grid-column: 1 / -1;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(1)
+    > section[data-clinical-section="history"]
     [data-slot="table-cell"]:last-child,
   .patient-overview-clinical-column
-    > section:nth-of-type(2)
+    > section[data-clinical-section="complaints"]
     [data-slot="table-cell"]:last-child,
-  .patient-overview-clinical-column > section:nth-of-type(1) li,
-  .patient-overview-clinical-column > section:nth-of-type(2) li {
+  .patient-overview-clinical-column
+    > section[data-clinical-section="history"]
+    li,
+  .patient-overview-clinical-column
+    > section[data-clinical-section="complaints"]
+    li {
     font-size: 6pt !important;
     line-height: 1 !important;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(1)
+    > section[data-clinical-section="history"]
     [data-slot="table-body"] {
     display: grid !important;
     grid-auto-flow: column;
@@ -502,7 +515,7 @@
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(1)
+    > section[data-clinical-section="history"]
     [data-slot="table-row"] {
     display: block !important;
     min-width: 0;
@@ -511,13 +524,13 @@
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(1)
+    > section[data-clinical-section="history"]
     [data-slot="table-row"]:last-child {
     border-right: 0;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(1)
+    > section[data-clinical-section="history"]
     [data-slot="table-cell"] {
     display: block !important;
     width: 100% !important;
@@ -525,25 +538,25 @@
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(1)
+    > section[data-clinical-section="history"]
     [data-slot="table-cell"]:first-child {
     padding-bottom: 0 !important;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(1)
+    > section[data-clinical-section="history"]
     [data-slot="table-cell"]:last-child {
     padding-top: 1px !important;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(1)
+    > section[data-clinical-section="history"]
     .previous-history-marker {
     display: none !important;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(5)
+    > section[data-clinical-section="diagnosis"]
     [data-slot="table-body"] {
     display: grid !important;
     grid-auto-flow: column;
@@ -551,7 +564,7 @@
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(5)
+    > section[data-clinical-section="diagnosis"]
     [data-slot="table-row"] {
     display: block !important;
     min-width: 0;
@@ -560,13 +573,13 @@
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(5)
+    > section[data-clinical-section="diagnosis"]
     [data-slot="table-row"]:last-child {
     border-right: 0;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(5)
+    > section[data-clinical-section="diagnosis"]
     [data-slot="table-cell"] {
     display: block !important;
     width: 100% !important;
@@ -574,27 +587,29 @@
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(5)
+    > section[data-clinical-section="diagnosis"]
     [data-slot="table-cell"]:first-child {
     padding-bottom: 0 !important;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(5)
+    > section[data-clinical-section="diagnosis"]
     [data-slot="table-cell"]:last-child {
     padding-top: 1px !important;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(5)
+    > section[data-clinical-section="diagnosis"]
     [data-slot="table-cell"]:last-child,
-  .patient-overview-clinical-column > section:nth-of-type(5) li {
+  .patient-overview-clinical-column
+    > section[data-clinical-section="diagnosis"]
+    li {
     font-size: 6pt !important;
     line-height: 1 !important;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(5)
+    > section[data-clinical-section="diagnosis"]
     .diagnosis-marker {
     display: none !important;
   }
@@ -623,14 +638,14 @@
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(3)
+    > section[data-clinical-section="vitals"]
     :is([data-slot="table-head"], [data-slot="table-cell"]) {
     width: 90px !important;
     min-width: 90px !important;
   }
 
   .patient-overview-clinical-column
-    > section:nth-of-type(4)
+    > section[data-clinical-section="reports"]
     :is([data-slot="table-head"], [data-slot="table-cell"]) {
     width: 84px !important;
     min-width: 84px !important;

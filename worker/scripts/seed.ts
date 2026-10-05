@@ -356,7 +356,7 @@ const DEMO_PATIENTS: SeedPatient[] = [
     pid: "PID900003",
     fullName: "Sunil Singh",
     mobile: "9876543203",
-    address: "Bhagwanpur Chowk, Muzaffarpur, Bihar",
+    address: "Fardo Gola Chowk, Muzaffarpur, Bihar",
     ageYears: 64,
     gender: "male",
     createdAt: "2026-04-14",

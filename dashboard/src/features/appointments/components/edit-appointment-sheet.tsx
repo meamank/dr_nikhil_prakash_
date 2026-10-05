@@ -81,7 +81,7 @@ export function EditAppointmentSheet({
   const [age, setAge] = React.useState("")
   const [gender, setGender] = React.useState("")
   const [clinic, setClinic] = React.useState<"juran_chhapra" | "bhagwanpur">(
-    "juran_chhapra"
+    "bhagwanpur"
   )
   const [date, setDate] = React.useState("")
   const [status, setStatus] = React.useState<string>("not_paid")
@@ -102,7 +102,7 @@ export function EditAppointmentSheet({
       )
       setGender(appointment.patientGender ?? "")
       setClinic(
-        appointment.clinic === "bhagwanpur" ? "bhagwanpur" : "juran_chhapra"
+        appointment.clinic === "juran_chhapra" ? "juran_chhapra" : "bhagwanpur"
       )
       setDate(toDateInput(appointment.scheduledAt))
       setStatus(appointment.status)
@@ -113,7 +113,7 @@ export function EditAppointmentSheet({
       setPatientMobile("")
       setAge("")
       setGender("male")
-      setClinic("juran_chhapra")
+      setClinic("bhagwanpur")
       const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
       setDate(ist.toISOString().slice(0, 10))
       setStatus("not_paid")

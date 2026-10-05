@@ -50,7 +50,7 @@ export function clinicClosureMessage(
     return "Juran Chhapra clinic is closed on Saturdays";
   }
   if (clinic === "bhagwanpur" && weekday === 0) {
-    return "Bhagwanpur clinic is closed on Sundays";
+    return "Fardo Gola clinic is closed on Sundays";
   }
   return null;
 }

@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router"
 import Dashboard from "@/features/dashboard/components/Dashboard"
+import type { Clinic } from "@/features/appointments/appointment-queries"
 
 export type DashboardRange = "total" | "7d" | "30d" | "90d" | "custom"
+export type DashboardClinic = Clinic | "all"
 
 type DashboardSearch = {
+  clinic?: DashboardClinic
   range?: DashboardRange
   from?: string
   to?: string
@@ -27,6 +30,12 @@ export const Route = createFileRoute("/_authenticated/")({
     const from = validDate(search.from) ? search.from : undefined
     const to = validDate(search.to) ? search.to : undefined
     return {
+      clinic:
+        search.clinic === "bhagwanpur" ||
+        search.clinic === "juran_chhapra" ||
+        search.clinic === "all"
+          ? search.clinic
+          : undefined,
       range,
       from,
       to: from && to && to >= from ? to : undefined,

@@ -94,18 +94,9 @@ export default function Hero() {
           <div className="flex items-center gap-3">
             <MapPin color="var(--color-lime)" size="18" />
             <div>
-              <p className="text-sm font-semibold">Road No.3, Juran Chhapra</p>
+              <p className="text-sm font-semibold">Fardo Gola, Rewa Road</p>
               <p className="text-xs opacity-50">
-                11 A.M - 6 P.M · Saturday Closed
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-3">
-            <MapPin color="var(--color-lime)" size="18" />
-            <div>
-              <p className="text-sm font-semibold">Bhagwanpur</p>
-              <p className="text-xs opacity-50">
-                7 P.M - 10 P.M · Sunday Closed
+                6 P.M - 10 P.M · Sunday Closed
               </p>
             </div>
           </div>

@@ -17,7 +17,7 @@ function bad(
   return c.json({ error: msg }, status)
 }
 
-type VisitDetails = Record<string, unknown> & { visitDate?: unknown }
+type VisitDetails = Record<string, unknown> & { visitDate?: unknown; weight?: unknown }
 
 function validateVisitDetails(value: unknown): { visitDate: string; details: string } | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
@@ -28,6 +28,15 @@ function validateVisitDetails(value: unknown): { visitDate: string; details: str
   ) {
     return null
   }
+  if (
+    typeof details.weight !== "string" ||
+    !/^\d+(?:\.\d+)?$/.test(details.weight.trim()) ||
+    !Number.isFinite(Number(details.weight)) ||
+    Number(details.weight) <= 0
+  ) {
+    return null
+  }
+  details.weight = details.weight.trim()
   const serialized = JSON.stringify(details)
   if (serialized.length > 100_000) return null
   return { visitDate: details.visitDate, details: serialized }
@@ -43,11 +52,19 @@ function presentVisit(visit: typeof schema.patientVisits.$inferSelect) {
   return { ...visit, details }
 }
 
-// GET /api/patients?q=&date=&limit=&offset= — list PID holders, newest first.
+// GET /api/patients?q=&date=&clinic=&limit=&offset= — list PID holders, newest first.
 // q matches name prefix, PID/mobile, or address (partial).
 patients.get("/", async (c) => {
   const q = c.req.query("q")?.trim() ?? ""
   const date = c.req.query("date")
+  const clinicQuery = c.req.query("clinic")
+  if (clinicQuery && !["all", "juran_chhapra", "bhagwanpur"].includes(clinicQuery)) {
+    return bad(c, "Pick a clinic")
+  }
+  const clinic =
+    clinicQuery === "juran_chhapra" || clinicQuery === "bhagwanpur"
+      ? clinicQuery
+      : undefined
   const limit = Math.min(
     Math.max(Number(c.req.query("limit") ?? 50) || 50, 1),
     200,
@@ -73,10 +90,15 @@ patients.get("/", async (c) => {
         )
       })()
     : undefined
-  const where =
-    textFilter && dateFilter
-      ? and(textFilter, dateFilter)
-      : textFilter ?? dateFilter
+  const clinicFilter = clinic
+    ? sql`exists (
+        select 1 from ${schema.appointments}
+        where (${schema.appointments.patientPid} = ${schema.patients.pid}
+          or ${schema.appointments.paymentPatientPid} = ${schema.patients.pid})
+          and ${schema.appointments.clinic} = ${clinic}
+      )`
+    : undefined
+  const where = and(textFilter, dateFilter, clinicFilter)
 
   const rows = await db
     .select()
@@ -184,7 +206,7 @@ patients.get("/:pid/visits", async (c) => {
 patients.post("/:pid/visits", async (c) => {
   const pid = c.req.param("pid").trim().toUpperCase()
   const payload = validateVisitDetails(await c.req.json().catch(() => null))
-  if (!payload) return bad(c, "Visit details must include a valid visit date")
+  if (!payload) return bad(c, "Visit details must include a valid visit date and a numeric weight greater than 0 in kilograms")
 
   const db = createDb(c.env.DB)
   const [patient] = await db
@@ -215,7 +237,7 @@ patients.patch("/:pid/visits/:visitId", async (c) => {
   const pid = c.req.param("pid").trim().toUpperCase()
   const visitId = c.req.param("visitId")
   const payload = validateVisitDetails(await c.req.json().catch(() => null))
-  if (!payload) return bad(c, "Visit details must include a valid visit date")
+  if (!payload) return bad(c, "Visit details must include a valid visit date and a numeric weight greater than 0 in kilograms")
 
   const db = createDb(c.env.DB)
   const [existing] = await db

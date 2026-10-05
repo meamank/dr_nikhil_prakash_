@@ -28,7 +28,7 @@ export default function AddAppointmentPage() {
   const [mobile, setMobile] = useState("")
   const [age, setAge] = useState("")
   const [gender, setGender] = useState("")
-  const [clinic, setClinic] = useState<Clinic>(search.clinic ?? "juran_chhapra")
+  const [clinic, setClinic] = useState<Clinic>(search.clinic ?? "bhagwanpur")
   const [date, setDate] = useState(search.date ?? todayIST())
   const [status, setStatus] = useState<"not_paid" | "paid" | "foc">("not_paid")
   const [paymentMode, setPaymentMode] = useState<"cash" | "upi">("cash")

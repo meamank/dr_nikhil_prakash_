@@ -45,17 +45,17 @@ export function AppointmentDetailsFields({
             onChange={(event) =>
               onChange(
                 "clinic",
-                event.target.value === "bhagwanpur"
-                  ? "bhagwanpur"
-                  : "juran_chhapra"
+                event.target.value === "juran_chhapra"
+                  ? "juran_chhapra"
+                  : "bhagwanpur"
               )
             }
           >
+            <NativeSelectOption value="bhagwanpur">
+              Fardo Gola
+            </NativeSelectOption>
             <NativeSelectOption value="juran_chhapra">
               Juran Chhapra
-            </NativeSelectOption>
-            <NativeSelectOption value="bhagwanpur">
-              Bhagwanpur
             </NativeSelectOption>
           </NativeSelect>
         </div>

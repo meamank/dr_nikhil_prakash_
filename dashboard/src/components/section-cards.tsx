@@ -5,6 +5,7 @@ import { format, subDays } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
 import { Calendar } from "@/components/ui/calendar"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import {
   Popover,
   PopoverContent,
@@ -13,6 +14,7 @@ import {
 import { apiGet } from "@/lib/api"
 import {
   Route as DashboardRoute,
+  type DashboardClinic,
   type DashboardRange,
 } from "@/routes/_authenticated/index"
 import {
@@ -170,6 +172,7 @@ function patientTrend(summary: DashboardSummary | undefined) {
 export function SectionCards() {
   const search = DashboardRoute.useSearch()
   const navigate = DashboardRoute.useNavigate()
+  const clinic = search.clinic ?? "bhagwanpur"
   const dashboardPeriod = search.range ?? "30d"
   const customRange =
     dashboardPeriod === "custom" && search.from
@@ -186,10 +189,10 @@ export function SectionCards() {
       ? "period=total"
       : `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
   const summaryQuery = useQuery({
-    queryKey: ["dashboard", "summary", { dashboardPeriod, from, to }],
+    queryKey: ["dashboard", "summary", { dashboardPeriod, from, to, clinic }],
     queryFn: ({ signal }) =>
       apiGet<DashboardSummary>(
-        `/api/booking/dashboard-summary?${filteredQuery}`,
+        `/api/booking/dashboard-summary?${filteredQuery}&clinic=${clinic}`,
         { signal }
       ),
     staleTime: 10_000,
@@ -197,11 +200,12 @@ export function SectionCards() {
     enabled: dashboardPeriod === "total" || Boolean(from && to),
   })
   const todayQuery = useQuery({
-    queryKey: ["dashboard", "summary", "today"],
+    queryKey: ["dashboard", "summary", "today", { clinic }],
     queryFn: ({ signal }) =>
-      apiGet<DashboardSummary>("/api/booking/dashboard-summary?period=1d", {
-        signal,
-      }),
+      apiGet<DashboardSummary>(
+        `/api/booking/dashboard-summary?period=1d&clinic=${clinic}`,
+        { signal }
+      ),
     staleTime: 10_000,
     placeholderData: keepPreviousData,
   })
@@ -222,7 +226,24 @@ export function SectionCards() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end px-4 lg:px-6">
+      <div className="flex flex-wrap items-center justify-end gap-2 px-4 lg:px-6">
+        <NativeSelect
+          aria-label="Dashboard clinic"
+          value={clinic}
+          onChange={(event) => {
+            const nextClinic = event.target.value as DashboardClinic
+            navigate({
+              search: (previous) => ({ ...previous, clinic: nextClinic }),
+            })
+          }}
+          className="rounded-full bg-background shadow-xs [&>select]:h-9 [&>select]:rounded-full [&>select]:pl-4 [&>select]:font-medium"
+        >
+          <NativeSelectOption value="bhagwanpur">Fardo Gola</NativeSelectOption>
+          <NativeSelectOption value="juran_chhapra">
+            Juran Chhapra
+          </NativeSelectOption>
+          <NativeSelectOption value="all">All clinics</NativeSelectOption>
+        </NativeSelect>
         <div className="flex overflow-hidden rounded-full border bg-background shadow-xs">
           <Popover>
             <PopoverTrigger asChild>
@@ -241,16 +262,18 @@ export function SectionCards() {
                 mode="range"
                 selected={dateRange}
                 onSelect={(nextRange) => {
-                  if (!nextRange?.from) return
+                  const nextFrom = nextRange?.from
+                  if (!nextFrom) return
                   navigate({
                     replace: true,
-                    search: {
+                    search: (previous) => ({
+                      ...previous,
                       range: "custom",
-                      from: format(nextRange.from, "yyyy-MM-dd"),
+                      from: format(nextFrom, "yyyy-MM-dd"),
                       to: nextRange.to
                         ? format(nextRange.to, "yyyy-MM-dd")
                         : undefined,
-                    },
+                    }),
                   })
                 }}
                 defaultMonth={dateRange?.from}
@@ -265,8 +288,9 @@ export function SectionCards() {
               onChange={(event) => {
                 const nextPeriod = event.target.value as DashboardRange
                 navigate({
-                  search:
-                    nextPeriod === "custom" && dateRange?.from
+                  search: (previous) => ({
+                    ...previous,
+                    ...(nextPeriod === "custom" && dateRange?.from
                       ? {
                           range: "custom",
                           from: format(dateRange.from, "yyyy-MM-dd"),
@@ -274,7 +298,8 @@ export function SectionCards() {
                             ? format(dateRange.to, "yyyy-MM-dd")
                             : undefined,
                         }
-                      : { range: nextPeriod, from: undefined, to: undefined },
+                      : { range: nextPeriod, from: undefined, to: undefined }),
+                  }),
                 })
               }}
               className="h-full appearance-none bg-transparent py-2 pr-9 pl-4 text-sm font-medium outline-none"

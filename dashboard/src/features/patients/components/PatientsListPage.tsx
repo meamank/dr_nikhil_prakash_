@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { apiDelete, apiGet, apiPost } from "@/lib/api"
 import { PatientsTable, type PatientRow } from "./patients-table"
 import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { AddPatientSheet, type NewPatient } from "./AddPatientSheet"
-import { Route } from "@/routes/_authenticated/patients/index"
+import { Route, type PatientClinic } from "@/routes/_authenticated/patients/index"
 
 function todayIST(): string {
   const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000)
@@ -35,6 +36,7 @@ export default function PatientsListPage() {
   const queryClient = useQueryClient()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const clinic = search.clinic ?? "bhagwanpur"
   const showAll = search.scope === "all"
   const date = search.date ?? todayIST()
   const appliedQuery = search.query ?? ""
@@ -54,6 +56,7 @@ export default function PatientsListPage() {
   const key = [
     "patients",
     {
+      clinic,
       date: showAll ? null : date,
       q: showAll ? appliedQuery : "",
       pageIndex: showAll ? allPatientsPagination.pageIndex : 0,
@@ -64,6 +67,7 @@ export default function PatientsListPage() {
     queryKey: key,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams({
+        clinic,
         limit: `${showAll ? allPatientsPagination.pageSize : 100}`,
       })
       if (showAll && appliedQuery) params.set("q", appliedQuery)
@@ -195,6 +199,32 @@ export default function PatientsListPage() {
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
       <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-2">
+          <label htmlFor="patients-clinic" className="text-sm font-medium">
+            Clinic
+          </label>
+          <NativeSelect
+            id="patients-clinic"
+            value={clinic}
+            onChange={(event) => {
+              const nextClinic = event.target.value as PatientClinic
+              navigate({
+                search: (current) => ({
+                  ...current,
+                  clinic: nextClinic,
+                  page: 0,
+                }),
+              })
+            }}
+            className="w-40"
+          >
+            <NativeSelectOption value="bhagwanpur">Fardo Gola</NativeSelectOption>
+            <NativeSelectOption value="juran_chhapra">
+              Juran Chhapra
+            </NativeSelectOption>
+            <NativeSelectOption value="all">All clinics</NativeSelectOption>
+          </NativeSelect>
+        </div>
         <div className="flex items-end gap-2">
           {!showAll && (
             <div className="flex flex-col gap-2">
@@ -272,7 +302,7 @@ export default function PatientsListPage() {
       {visibleRows.length === 0 && !patientsQuery.isLoading ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No patients yet. Add an existing patient or issue a PID when a booking is marked Paid.
+            No patients match these filters.
           </CardContent>
         </Card>
       ) : (
