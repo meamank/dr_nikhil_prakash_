@@ -471,7 +471,7 @@ booking.get("/dashboard-summary", async (c) => {
     : startOfMonthIST(new Date(), -1)
   const previousEnd = comparisonStart
   const [comparisonCurrent, comparisonPrevious] = await Promise.all([
-    aggregate(comparisonStart, comparisonEnd),
+    periodStart ? result : aggregate(comparisonStart, comparisonEnd),
     aggregate(previousStart, previousEnd),
   ])
   const patientAggregate = async (start?: Date, end?: Date) => {
@@ -485,11 +485,14 @@ booking.get("/dashboard-summary", async (c) => {
       .where(
         and(
           clinic
-            ? sql`exists (
-                select 1 from ${schema.appointments}
-                where (${schema.appointments.patientPid} = ${schema.patients.pid}
-                  or ${schema.appointments.paymentPatientPid} = ${schema.patients.pid})
-                  and ${schema.appointments.clinic} = ${clinic}
+            ? sql`${schema.patients.pid} in (
+                select ${schema.appointments.patientPid} from ${schema.appointments}
+                where ${schema.appointments.clinic} = ${clinic}
+                  and ${schema.appointments.patientPid} is not null
+                union
+                select ${schema.appointments.paymentPatientPid} from ${schema.appointments}
+                where ${schema.appointments.clinic} = ${clinic}
+                  and ${schema.appointments.paymentPatientPid} is not null
               )`
             : undefined,
           start && end
@@ -509,11 +512,13 @@ booking.get("/dashboard-summary", async (c) => {
           comparisonDays * 24 * 60 * 60 * 1000,
       )
     : startOfMonthIST(new Date(), -1)
-  const [patientResult, currentPatientTrend, previousPatientResult] = await Promise.all([
+  const [patientResult, previousPatientResult] = await Promise.all([
     patientAggregate(periodStart ?? undefined, periodStart ? currentEnd : undefined),
-    patientAggregate(patientComparisonStart, currentEnd),
     patientAggregate(patientPreviousStart, patientComparisonStart),
   ])
+  const currentPatientTrend = periodStart
+    ? patientResult
+    : await patientAggregate(patientComparisonStart, currentEnd)
 
   return c.json({
     totalAppointments: Number(result?.totalAppointments ?? 0),
@@ -626,13 +631,14 @@ booking.get("/dashboard-chart", async (c) => {
   if (clinic) {
     appointmentConditions.push("clinic = ?")
     appointmentParams.push(clinic)
-    patientConditions.push(`EXISTS (
-      SELECT 1 FROM appointments
-      WHERE (appointments.patient_pid = patients.pid
-        OR appointments.payment_patient_pid = patients.pid)
-        AND appointments.clinic = ?
+    patientConditions.push(`patients.pid IN (
+      SELECT patient_pid FROM appointments
+      WHERE clinic = ? AND patient_pid IS NOT NULL
+      UNION
+      SELECT payment_patient_pid FROM appointments
+      WHERE clinic = ? AND payment_patient_pid IS NOT NULL
     )`)
-    patientParams.push(clinic)
+    patientParams.push(clinic, clinic)
   }
   const appointmentSql = `
     SELECT ${appointmentDate} AS date,

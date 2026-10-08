@@ -91,11 +91,14 @@ patients.get("/", async (c) => {
       })()
     : undefined
   const clinicFilter = clinic
-    ? sql`exists (
-        select 1 from ${schema.appointments}
-        where (${schema.appointments.patientPid} = ${schema.patients.pid}
-          or ${schema.appointments.paymentPatientPid} = ${schema.patients.pid})
-          and ${schema.appointments.clinic} = ${clinic}
+    ? sql`${schema.patients.pid} in (
+        select ${schema.appointments.patientPid} from ${schema.appointments}
+        where ${schema.appointments.clinic} = ${clinic}
+          and ${schema.appointments.patientPid} is not null
+        union
+        select ${schema.appointments.paymentPatientPid} from ${schema.appointments}
+        where ${schema.appointments.clinic} = ${clinic}
+          and ${schema.appointments.paymentPatientPid} is not null
       )`
     : undefined
   const where = and(textFilter, dateFilter, clinicFilter)

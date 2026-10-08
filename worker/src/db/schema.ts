@@ -135,7 +135,7 @@ export const patients = sqliteTable("patients", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-})
+}, (table) => [index("patients_created_at_idx").on(table.createdAt)])
 
 // Structured clinical notes for a patient visit. Form details are kept as JSON
 // so assessment forms can evolve without requiring a migration per field.
@@ -218,7 +218,11 @@ export const appointments = sqliteTable("appointments", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-})
+}, (table) => [
+  index("appointments_clinic_scheduled_at_idx").on(table.clinic, table.scheduledAt),
+  index("appointments_clinic_patient_pid_idx").on(table.clinic, table.patientPid),
+  index("appointments_clinic_payment_patient_pid_idx").on(table.clinic, table.paymentPatientPid),
+])
 
 export const vitals = sqliteTable("vitals", {
   id: text("id").primaryKey(),
