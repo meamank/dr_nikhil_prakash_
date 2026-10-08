@@ -3,10 +3,10 @@ import { PhoneIcon, PinIcon } from "./icons";
 const LOCATIONS = [
   {
     name: "Fardo Gola",
-    address: "Fardo Gola, Near CityKart, Rewa Road, Muzaffarpur",
+    address: "Fardo Gola, Near CityKart, Rewa Road, Muzaffarpur, Bihar",
     phone: "82358 21231",
     phoneHref: "tel:+918235821231",
-    hours: "6:00 pm – 10:00 pm · Daily",
+    hours: "6:00 pm – 10:00 pm · Sunday Closed",
     embedSrc:
       "https://www.google.com/maps?q=Fardo+Gola,+Near+CityKart,+Rewa+Road,+Muzaffarpur&z=15&output=embed",
   },
@@ -72,7 +72,9 @@ export default function ReachUs() {
                     className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-3 p-6 text-teal-accent transition-colors hover:bg-mint-deep/10 focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-teal-accent"
                   >
                     <PinIcon className="h-10 w-10" />
-                    <span className="text-base font-semibold">Click to load map</span>
+                    <span className="text-base font-semibold">
+                      Click to load map
+                    </span>
                     <span className="text-sm text-ink/55">{name}</span>
                   </button>
                 ) : (
