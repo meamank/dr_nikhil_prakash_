@@ -16,6 +16,15 @@ const queryClient = new QueryClient({
   },
 })
 
+// Refresh operational data when staff return to the tab, including changes
+// made on other devices. Local mutations invalidate these caches immediately.
+for (const key of ["dashboard", "appointments", "reports"]) {
+  queryClient.setQueryDefaults([key], {
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
+  })
+}
+
 const router = createRouter({
   routeTree,
   context: { queryClient },

@@ -130,6 +130,9 @@ export default function PatientsListPage() {
       return Promise.all([
         queryClient.invalidateQueries({ queryKey: ["patients"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["appointments"] }),
+        queryClient.invalidateQueries({ queryKey: ["reports"] }),
+        queryClient.removeQueries({ queryKey: ["patient", pid] }),
       ])
     },
   })

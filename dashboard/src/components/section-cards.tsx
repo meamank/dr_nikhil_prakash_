@@ -1,10 +1,11 @@
 "use client"
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import { keepPreviousData, useIsFetching, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format, subDays } from "date-fns"
 import type { DateRange } from "react-day-picker"
 
 import { Calendar } from "@/components/ui/calendar"
+import { Button } from "@/components/ui/button"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import {
   Popover,
@@ -30,6 +31,7 @@ import {
   ChevronDownIcon,
   TrendingUpIcon,
   TrendingDownIcon,
+  RefreshCwIcon,
 } from "lucide-react"
 
 type DashboardSummary = {
@@ -170,6 +172,8 @@ function patientTrend(summary: DashboardSummary | undefined) {
 }
 
 export function SectionCards() {
+  const queryClient = useQueryClient()
+  const refreshing = useIsFetching({ queryKey: ["dashboard"] }) > 0
   const search = DashboardRoute.useSearch()
   const navigate = DashboardRoute.useNavigate()
   const clinic = search.clinic ?? "bhagwanpur"
@@ -195,7 +199,7 @@ export function SectionCards() {
         `/api/booking/dashboard-summary?${filteredQuery}&clinic=${clinic}`,
         { signal }
       ),
-    staleTime: 10_000,
+    staleTime: 60_000,
     placeholderData: keepPreviousData,
     enabled: dashboardPeriod === "total" || Boolean(from && to),
   })
@@ -206,7 +210,7 @@ export function SectionCards() {
         `/api/booking/dashboard-summary?period=1d&clinic=${clinic}`,
         { signal }
       ),
-    staleTime: 10_000,
+    staleTime: 60_000,
     placeholderData: keepPreviousData,
   })
   const summary = summaryQuery.data
@@ -227,6 +231,14 @@ export function SectionCards() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-end gap-2 px-4 lg:px-6">
+        <Button
+          variant="outline"
+          disabled={refreshing}
+          onClick={() => void queryClient.invalidateQueries({ queryKey: ["dashboard"] })}
+        >
+          <RefreshCwIcon className={refreshing ? "animate-spin" : undefined} />
+          Refresh
+        </Button>
         <NativeSelect
           aria-label="Dashboard clinic"
           value={clinic}

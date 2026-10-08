@@ -33,7 +33,10 @@ export default function PatientDetail() {
     onSuccess: ({ patient: updatedPatient }) => {
       queryClient.setQueryData(patientKeys.detail(patientId), updatedPatient)
       setEditingDemographics(false)
-      return queryClient.invalidateQueries({ queryKey: patientKeys.all })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: patientKeys.all }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ])
     },
   })
   const requestError = patientQuery.error ?? updatePatientMutation.error

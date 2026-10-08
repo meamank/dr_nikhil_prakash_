@@ -62,7 +62,7 @@ export function ChartAreaInteractive() {
         `/api/booking/dashboard-chart?${query}`,
         { signal }
       ),
-    staleTime: 10_000,
+    staleTime: 60_000,
     placeholderData: keepPreviousData,
   })
   const points = chartQuery.data?.points ?? []
