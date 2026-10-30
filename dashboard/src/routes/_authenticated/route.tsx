@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { getSession } from "@/lib/auth-client"
 import { AppointmentsHeaderProvider } from "@/features/appointments/appointments-header-context"
+import { useMedicineCatalogueDownload } from "@/features/patients/hooks/useMedicineCatalogueDownload"
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/_authenticated")({
 })
 
 function AppLayout() {
+  useMedicineCatalogueDownload()
   return (
     <SidebarProvider
       style={

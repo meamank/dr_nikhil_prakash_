@@ -11,8 +11,9 @@ import chiefComplaints from "./routes/chief-complaints"
 import clinicalOptions from "./routes/clinical-options"
 import staff from "./routes/staff"
 import whatsappWebhook from "./routes/whatsapp-webhook"
+import { requireStaff, type StaffVariables } from "./middleware/require-staff"
 
-type Variables = {
+type Variables = StaffVariables & {
   patchedRequest: Request
 }
 
@@ -27,6 +28,7 @@ app.use(
     origin: (origin, c) =>
       getAllowedOrigins(c.env).includes(origin) ? origin : undefined,
     allowHeaders: ["Content-Type", "Authorization"],
+    exposeHeaders: ["set-auth-token"],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   }),
@@ -80,6 +82,7 @@ app.use("/api/auth/sign-up/*", async (c, next) => {
 
 
 app.all("/api/auth/*", (c) => {
+  c.header("Cache-Control", "no-store")
   const auth = createAuth(c.env)
   const req = c.get("patchedRequest") ?? c.req.raw
   return auth.handler(req)
@@ -89,6 +92,21 @@ app.all("/api/auth/*", (c) => {
 // Health check
 
 app.get("/api/health", (c) => c.json({ ok: true }))
+
+// Android startup/session restoration. Return only the fields the app needs,
+// never the database session token. Uses the same accounts and sessions as web.
+app.get("/api/session", requireStaff, (c) => {
+  const { user, session } = c.get("staffSession")
+  return c.json({
+    user: {
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      isFirstLogin: user.isFirstLogin,
+    },
+    session: { expiresAt: session.expiresAt.toISOString() },
+  })
+})
 
 
 // Domain routes

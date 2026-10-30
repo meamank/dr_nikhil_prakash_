@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { phoneNumber, username } from "better-auth/plugins"
+import { bearer, phoneNumber, username } from "better-auth/plugins"
 import { drizzle } from "drizzle-orm/d1"
 import * as schema from "./db/schema"
 
@@ -60,6 +60,10 @@ export function createAuth(env: Env) {
     baseURL: env.BETTER_AUTH_URL ?? "http://localhost:8787",
     // Workers have no process.env — the secret must be passed explicitly
     secret: env.BETTER_AUTH_SECRET,
+    advanced: {
+      disableOriginCheck: false,
+      disableCSRFCheck: false,
+    },
     database: drizzleAdapter(db, {
       provider: "sqlite",
       // Map better-auth table names to our Drizzle schema
@@ -101,7 +105,9 @@ export function createAuth(env: Env) {
     // Plugins
 
     plugins: [
-     
+      // Native clients send the signed set-auth-token value as Authorization: Bearer.
+      // Existing browser session cookies continue to work.
+      bearer({ requireSignature: true }),
       phoneNumber({
         // Stub — wire WhatsApp OTP here later
         sendOTP: async ({ phoneNumber, code }) => {

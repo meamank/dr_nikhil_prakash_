@@ -13,10 +13,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { useMedicineCatalogue, type CatalogueMedicine } from "@/features/patients/hooks/useMedicineCatalogue"
+import { medicineSearchKey } from "@/features/patients/lib/medicine-catalogue.mjs"
 import { useClinicalOptions } from "@/features/patients/hooks/useClinicalOptions"
 
 export type Medicine = {
   name: string
+  catalogueId?: string
   frequency: "OD" | "BD" | "TDS" | "BBF" | "SOS"
   duration: string
   notes: string
@@ -25,7 +28,14 @@ export type Medicine = {
 const frequencies = ["OD", "BD", "TDS", "BBF", "SOS"] as const
 const durationOptions = ["5 days", "10 days", "15 days", "20 days", "30 days", "3 months"]
 const normalize = (value: string) => value.trim().replace(/\s+/g, " ")
-const keyFor = (value: string) => normalize(value).toLowerCase()
+const keyFor = medicineSearchKey
+
+type MedicineSuggestion = {
+  id: string
+  label: string
+  catalogue?: CatalogueMedicine
+  create?: boolean
+}
 
 export function MedicinesInput({
   id,
@@ -42,6 +52,8 @@ export function MedicinesInput({
   const durationRef = useRef<HTMLInputElement>(null)
   const notesRef = useRef<HTMLInputElement>(null)
   const [medicine, setMedicine] = useState("")
+  const [selectedMedicine, setSelectedMedicine] = useState<MedicineSuggestion | null>(null)
+  const catalogue = useMedicineCatalogue(medicine)
   const [frequency, setFrequency] = useState<Medicine["frequency"]>("OD")
   const [duration, setDuration] = useState("")
   const [notes, setNotes] = useState("")
@@ -55,18 +67,27 @@ export function MedicinesInput({
   } = useClinicalOptions({
     endpoint: "/api/clinical-options/medicines-prescribed",
   })
-  const statusError = error ?? (loadError ? "Couldn’t load medicines." : null)
+  const statusError = error ?? (loadError ? "Couldn’t load saved medicines. Custom entry is still available." : null) ?? (catalogue.error ? "Couldn’t load catalogue suggestions. Custom entry is still available." : null)
 
   const medicineCandidate = normalize(medicine)
-  const medicineMatches = options.filter((option) =>
-    keyFor(option).includes(keyFor(medicine))
-  )
+  const catalogueItems: MedicineSuggestion[] = catalogue.suggestions.map((record) => ({
+    id: `catalogue:${record.id}`,
+    label: formatClinicalText(record.name),
+    catalogue: record,
+  }))
+  const catalogueNames = new Set(catalogueItems.map((item) => keyFor(item.label)))
+  const medicineMatches: MedicineSuggestion[] = [
+    ...catalogueItems,
+    ...options.filter((option) => keyFor(option).includes(keyFor(medicine)) && !catalogueNames.has(keyFor(option)))
+      .slice(0, Math.max(0, 10 - catalogueItems.length))
+      .map((label) => ({ id: `custom:${keyFor(label)}`, label })),
+  ]
   const canCreateMedicine =
     medicineCandidate.length > 0 &&
     medicineCandidate.length <= 200 &&
     !options.some((option) => keyFor(option) === keyFor(medicineCandidate))
-  const medicineItems = canCreateMedicine
-    ? [...medicineMatches, medicineCandidate]
+  const medicineItems: MedicineSuggestion[] = canCreateMedicine
+    ? [...medicineMatches, { id: "create", label: medicineCandidate, create: true }]
     : medicineMatches
   const durationCandidate = normalize(duration)
   const durationMatches = durationOptions.filter((option) =>
@@ -87,6 +108,9 @@ export function MedicinesInput({
       setError("Medicine name is too long.")
       return null
     }
+    if (selectedMedicine?.catalogue && keyFor(selectedMedicine.label) === keyFor(cleanMedicine)) {
+      return selectedMedicine.label
+    }
     const existing = options.find((option) => keyFor(option) === keyFor(cleanMedicine))
     if (existing) return existing
 
@@ -102,9 +126,10 @@ export function MedicinesInput({
     }
   }
 
-  async function selectMedicine(nextMedicine: string) {
-    const savedMedicine = await saveMedicine(nextMedicine)
+  async function selectMedicine(nextMedicine: MedicineSuggestion) {
+    const savedMedicine = nextMedicine.catalogue ? nextMedicine.label : await saveMedicine(nextMedicine.label)
     if (!savedMedicine) return
+    setSelectedMedicine({ ...nextMedicine, label: savedMedicine })
     setMedicine(savedMedicine)
     requestAnimationFrame(() =>
       document.getElementById(`${id}-frequency`)?.focus()
@@ -130,12 +155,15 @@ export function MedicinesInput({
       ...value,
       {
         name: savedMedicine,
+        ...(selectedMedicine?.catalogue && keyFor(selectedMedicine.label) === keyFor(savedMedicine)
+          ? { catalogueId: selectedMedicine.catalogue.id } : {}),
         frequency,
         duration: cleanDuration,
         notes: normalize(notes),
       },
     ])
     setMedicine("")
+    setSelectedMedicine(null)
     setFrequency("OD")
     setDuration("")
     setNotes("")
@@ -152,7 +180,8 @@ export function MedicinesInput({
             role={statusError ? "alert" : "status"}
             className={statusError ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
           >
-            {statusError ?? (saving ? "Saving…" : "Loading…")}
+            {statusError ?? (saving ? "Saving…" : "Loading saved medicines…")}
+            {catalogue.error && <button type="button" className="ml-2 underline" onClick={() => void catalogue.retry()}>Retry</button>}
           </span>
         )}
       </div>
@@ -161,29 +190,43 @@ export function MedicinesInput({
           autoHighlight
           items={medicineItems}
           filter={null}
-          value={medicine}
+          value={selectedMedicine}
+          itemToStringLabel={(item) => item.label}
+          isItemEqualToValue={(item, selected) => item.id === selected.id}
           onValueChange={(nextMedicine) => {
             if (nextMedicine) void selectMedicine(nextMedicine)
           }}
           inputValue={medicine}
-          onInputValueChange={(text) => setMedicine(formatClinicalText(text))}
-          disabled={loading || saving}
+          onInputValueChange={(text, details) => {
+            setMedicine(formatClinicalText(text))
+            if (details.reason === "input-change" || details.reason === "input-clear") setSelectedMedicine(null)
+          }}
+          disabled={saving}
         >
           <ComboboxInput
             ref={medicineRef}
             id={`${id}-medicine`}
             className="w-full"
-            placeholder="Medicine, e.g. Metformin 500 mg"
+            placeholder="Type 3 letters to search medicines"
             showClear={false}
           />
           <ComboboxContent>
-            <ComboboxEmpty>Type a medicine to add it.</ComboboxEmpty>
+            <p role="status" className="px-2 py-1.5 text-xs text-muted-foreground">
+              {Array.from(keyFor(medicine)).length < 3 ? (catalogue.localReady ? "Type at least 3 letters of a medicine name or composition." : "Type at least 3 letters to search medicine names.") : catalogue.loading ? "Searching medicines…" : "Select a medicine or add a custom name."}
+            </p>
+            <ComboboxEmpty>No matching medicines. You can enter a custom name.</ComboboxEmpty>
             <ComboboxList>
-              {(item: string) => (
-                <ComboboxItem key={item} value={item}>
-                  {canCreateMedicine && item === medicineCandidate
-                    ? `Add “${item}”`
-                    : item}
+              {(item: MedicineSuggestion) => (
+                <ComboboxItem key={item.id} value={item}>
+                  <div className="min-w-0">
+                    <p className="font-medium">{item.create ? `Add custom “${item.label}”` : item.label}</p>
+                    {item.catalogue && (
+                      <>
+                        <p className="text-xs text-muted-foreground">{formatClinicalText([item.catalogue.composition1, item.catalogue.composition2].filter(Boolean).join(" + "))}</p>
+                        <p className="text-xs text-muted-foreground">{formatClinicalText(item.catalogue.manufacturer)}</p>
+                      </>
+                    )}
+                  </div>
                 </ComboboxItem>
               )}
             </ComboboxList>
@@ -201,7 +244,7 @@ export function MedicinesInput({
                 durationRef.current?.focus()
               }
             }}
-            disabled={loading || saving}
+            disabled={saving}
           >
             {frequencies.map((option) => (
               <NativeSelectOption key={option} value={option}>
@@ -219,7 +262,7 @@ export function MedicinesInput({
             }}
             inputValue={duration}
             onInputValueChange={(text) => setDuration(formatClinicalText(text))}
-            disabled={loading || saving}
+            disabled={saving}
           >
             <ComboboxInput
               ref={durationRef}
@@ -254,9 +297,9 @@ export function MedicinesInput({
             }}
             placeholder="Notes, e.g. after food"
             className="min-w-0 flex-1"
-            disabled={loading || saving}
+            disabled={saving}
           />
-          <Button type="button" onClick={() => void addMedicine()} disabled={loading || saving}>
+          <Button type="button" onClick={() => void addMedicine()} disabled={saving}>
             Add
           </Button>
         </div>

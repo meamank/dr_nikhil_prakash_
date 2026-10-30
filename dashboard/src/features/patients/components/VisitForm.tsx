@@ -377,6 +377,7 @@ function getVisitValues(visit: VisitData): VisitValues {
     })),
     medicinesPrescribed: visit.medicinesPrescribed.map((medicine) => ({
       name: formatClinicalText(medicine.name),
+      ...(medicine.catalogueId ? { catalogueId: medicine.catalogueId } : {}),
       frequency: medicine.frequency,
       duration: formatClinicalText(medicine.duration),
       notes: formatClinicalText(medicine.notes),

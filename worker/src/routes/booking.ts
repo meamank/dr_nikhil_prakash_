@@ -3,7 +3,8 @@ import { and, desc, eq, gt, gte, like, lt, ne, or, sql } from "drizzle-orm"
 import { normalizePhone } from "@repo/shared"
 import { createDb } from "../db"
 import * as schema from "../db/schema"
-import { createAuth, type Env } from "../auth"
+import { createAuth } from "../auth"
+import { requireStaff, type StaffEnv } from "../middleware/require-staff"
 import {
   sendBookingConfirmWhatsApp,
   sendOtpWhatsApp,
@@ -14,7 +15,7 @@ import {
 //   Queue number is per clinic per day (resets daily).
 //   PID is issued only when staff marks Paid (mark-paid endpoint below).
 
-const booking = new Hono<{ Bindings: Env }>()
+const booking = new Hono<StaffEnv>()
 
 function newId(): string {
   return crypto.randomUUID()
@@ -892,7 +893,7 @@ booking.get("/reports", async (c) => {
   })
 })
 
-booking.get("/appointments", async (c) => {
+booking.get("/appointments", requireStaff, async (c) => {
   const clinic = c.req.query("clinic")
   const dateStr = c.req.query("date")
   const searchQ = c.req.query("q")?.trim()
@@ -936,9 +937,9 @@ booking.get("/appointments", async (c) => {
   return c.json({ appointments: rows })
 })
 
-// PATCH /api/booking/appointments/:id (staff-only — TODO: require staff session)
+// PATCH /api/booking/appointments/:id (staff-only)
 // Edit booking details: name, address, mobiles, age, gender, clinic, date, status.
-booking.patch("/appointments/:id", async (c) => {
+booking.patch("/appointments/:id", requireStaff, async (c) => {
   const id = c.req.param("id")
   const body = await c.req
     .json<{
@@ -1117,7 +1118,7 @@ booking.patch("/appointments/:id", async (c) => {
 // DELETE /api/booking/appointments/:id — remove an appointment and close its
 // queue gap. A patient is deleted only when this appointment created the PID,
 // and that patient has no visits, other linked appointments, or portal account.
-booking.delete("/appointments/:id", async (c) => {
+booking.delete("/appointments/:id", requireStaff, async (c) => {
   const id = c.req.param("id")
   const db = createDb(c.env.DB)
   const rows = await db
@@ -1187,12 +1188,12 @@ booking.delete("/appointments/:id", async (c) => {
   return c.json({ ok: true, deletedPatient })
 })
 
-// POST /api/booking/appointments/:id/mark-paid (staff-only — TODO: require staff session)
+// POST /api/booking/appointments/:id/mark-paid (staff-only)
 // Body: { pid?: string, paymentStatus?: "paid" | "foc",
 //         paymentMode?: "cash" | "upi" } — if an existing
 // PID is given, link to it (old patient). Otherwise generate a new PID +
 // patients row (new patient).
-booking.post("/appointments/:id/mark-paid", async (c) => {
+booking.post("/appointments/:id/mark-paid", requireStaff, async (c) => {
   const id = c.req.param("id")
   const body = await c.req
     .json<{

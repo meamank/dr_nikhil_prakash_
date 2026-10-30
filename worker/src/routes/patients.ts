@@ -2,12 +2,12 @@ import { Hono } from "hono"
 import { and, desc, eq, gte, like, lt, or, sql } from "drizzle-orm"
 import { createDb } from "../db"
 import * as schema from "../db/schema"
-import type { Env } from "../auth"
+import { requireStaff, type StaffEnv } from "../middleware/require-staff"
 
-// Staff patient directory. Every row here has a PID. Auth: TODO staff session
-// — open for now like booking.
+// Staff patient directory. Every row here has a PID.
 
-const patients = new Hono<{ Bindings: Env }>()
+const patients = new Hono<StaffEnv>()
+patients.use("*", requireStaff)
 
 function bad(
   c: { json: (b: unknown, s?: number) => Response },
